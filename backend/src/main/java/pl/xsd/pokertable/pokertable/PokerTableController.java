@@ -1,10 +1,9 @@
-package pl.diakowski.pokertable.pokertable;
+package pl.xsd.pokertable.pokertable;
 
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pl.diakowski.pokertable.developer.Developer;
-import pl.diakowski.pokertable.developer.DeveloperService;
+import pl.xsd.pokertable.developer.DeveloperService;
 
 @RestController
 @RequestMapping("/tables")
@@ -33,5 +32,11 @@ public class PokerTableController {
 		} catch (IllegalStateException e) {
 			return ResponseEntity.status(400).build();
 		}
+	}
+
+	@GetMapping("/active")
+	public ResponseEntity<PokerTable> getActiveTable() {
+		PokerTable table = pokerTableService.getActiveTable();
+		return ResponseEntity.ok(table);
 	}
 }

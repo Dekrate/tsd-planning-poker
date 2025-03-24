@@ -1,11 +1,10 @@
-package pl.diakowski.pokertable.developer;
+package pl.xsd.pokertable.developer;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import pl.diakowski.pokertable.pokertable.PokerTable;
+import pl.xsd.pokertable.pokertable.PokerTable;
 
 @Entity
 @NoArgsConstructor
@@ -20,6 +19,9 @@ public class Developer {
 	@Column(nullable = false)
 	private String name;
 
+	@Column(nullable = false)
+	private String sessionId; // Nowe pole
+
 	@ManyToOne
 	@JoinColumn(name = "poker_table_id")
 	private PokerTable pokerTable;
@@ -27,12 +29,13 @@ public class Developer {
 	@Column(nullable = false)
 	private Integer vote;
 
-	public Developer(String name, PokerTable pokerTable) {
-		this.name = name;
-		this.pokerTable = pokerTable;
-	}
-
 	public boolean hasVoted() {
 		return vote == null;
+	}
+
+	// Nowy konstruktor
+	public Developer(String sessionId, String name) {
+		this.sessionId = sessionId;
+		this.name = name;
 	}
 }

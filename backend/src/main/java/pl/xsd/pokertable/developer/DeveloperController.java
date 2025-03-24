@@ -1,10 +1,10 @@
-package pl.diakowski.pokertable.pokertable;
+package pl.xsd.pokertable.developer;
 
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pl.diakowski.pokertable.developer.Developer;
-import pl.diakowski.pokertable.developer.DeveloperService;
+
+import java.util.Set;
 
 @RestController
 @RequestMapping("/developers")
@@ -39,5 +39,11 @@ public class DeveloperController {
 	public ResponseEntity<Developer> getDeveloper(@PathVariable Long developerId) {
 		Developer developer = developerService.getDeveloper(developerId);
 		return ResponseEntity.ok(developer);
+	}
+
+	@GetMapping("/poker-table/{tableId}")
+	public ResponseEntity<Set<Developer>> getAllDevelopers(@PathVariable Long tableId) {
+		Set<Developer> developers = developerService.getDevelopersForPokerTable(tableId);
+		return ResponseEntity.ok(developers);
 	}
 }
