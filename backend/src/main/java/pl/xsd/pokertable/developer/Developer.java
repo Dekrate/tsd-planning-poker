@@ -1,5 +1,6 @@
 package pl.xsd.pokertable.developer;
 
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,9 +25,10 @@ public class Developer {
 
 	@ManyToOne
 	@JoinColumn(name = "poker_table_id")
+	@JsonIgnore
 	private PokerTable pokerTable;
 
-	@Column(nullable = false)
+	@Column
 	private Integer vote;
 
 	public boolean hasVoted() {

@@ -1,9 +1,11 @@
 package pl.xsd.pokertable.developer;
 
+import jakarta.servlet.http.HttpSession;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -45,5 +47,11 @@ public class DeveloperController {
 	public ResponseEntity<Set<Developer>> getAllDevelopers(@PathVariable Long tableId) {
 		Set<Developer> developers = developerService.getDevelopersForPokerTable(tableId);
 		return ResponseEntity.ok(developers);
+	}
+
+	@PostMapping("/join")
+	public ResponseEntity<Map<String, Object>> joinTable(@RequestParam String name, HttpSession session) {
+		Map<String, Object> result = developerService.joinTable(name, session);
+		return ResponseEntity.ok(result);
 	}
 }

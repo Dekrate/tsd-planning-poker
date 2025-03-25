@@ -1,5 +1,9 @@
 package pl.xsd.pokertable.pokertable;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,6 +17,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Setter
 @Getter
+
 public class PokerTable {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,7 +31,8 @@ public class PokerTable {
 
 	private Boolean isClosed;
 
-	@OneToMany(mappedBy = "pokerTable")
+	@OneToMany(mappedBy = "pokerTable", fetch = FetchType.EAGER)
+	@JsonBackReference // ← Ważna adnotacja
 	private Set<Developer> developers;
 
 	public PokerTable(Long id, String name) {

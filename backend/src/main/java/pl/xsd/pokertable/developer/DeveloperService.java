@@ -81,25 +81,28 @@ public class DeveloperService {
 	}
 
 	public Map<String, Object> joinTable(String name, HttpSession session) {
-		PokerTable table = pokerTableService.getActiveTable();
-
+		PokerTable table = getActiveTable();
 		String sessionId = session.getId();
-		Optional<Developer> existingDeveloper = developerRepository.findBySessionId(sessionId);
 
-		if (existingDeveloper.isPresent()) {
-			return Map.of(
-					"developer", existingDeveloper.get(),
-					"table", table
-			);
-		}
-
-		Developer developer = new Developer(sessionId, name);
-		developer.setPokerTable(table);
-		developerRepository.save(developer);
+		Developer developer = developerRepository.findBySessionId(sessionId)
+				.orElseGet(() -> {
+					Developer newDev = new Developer(sessionId, name);
+					newDev.setPokerTable(table);
+					newDev.setVote(0); // Domyślna wartość
+					return developerRepository.save(newDev);
+				});
 
 		return Map.of(
-				"developer", developer,
-				"table", table
+				"developer", Map.of(
+						"id", developer.getId(),
+						"name", developer.getName(),
+						"sessionId", developer.getSessionId()
+				),
+				"table", Map.of(
+						"id", table.getId(),
+						"name", table.getName(),
+						"createdAt", table.getCreatedAt()
+				)
 		);
 	}
 }
