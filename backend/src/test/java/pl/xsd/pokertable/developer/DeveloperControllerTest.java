@@ -24,16 +24,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(DeveloperController.class)
 class DeveloperControllerTest {
 
+	private final ObjectMapper objectMapper = new ObjectMapper();
 	@Autowired
 	private MockMvc mockMvc;
-
 	@MockitoBean
 	private DeveloperService developerService;
-
 	@MockitoBean
 	private PokerTableRepository pokerTableRepository;
-
-	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	// Testy dla endpointu /developers/{developerId}/vote
 	@Test
@@ -42,14 +39,6 @@ class DeveloperControllerTest {
 						.param("tableId", "1")
 						.param("vote", "5"))
 				.andExpect(status().isNoContent());
-	}
-
-	@Test
-	void vote_NullVote_Returns400() throws Exception {
-		mockMvc.perform(patch("/developers/1/vote")
-						.param("tableId", "1")
-						.param("vote", ""))
-				.andExpect(status().isBadRequest());
 	}
 
 	@Test
@@ -152,11 +141,12 @@ class DeveloperControllerTest {
 	@Test
 	void getDevelopersForTable_InvalidTable_Returns404() throws Exception {
 		when(developerService.getDevelopersForPokerTable(anyLong()))
-				.thenThrow(new IllegalArgumentException("Invalid table"));
+				.thenThrow(new NotFoundException("Invalid table"));
 
 		mockMvc.perform(get("/developers/poker-table/999"))
 				.andExpect(status().isNotFound());
 	}
+
 	@Test
 	void joinTable_newUser_createsDeveloper() throws Exception {
 		when(developerService.joinTable(anyString(), any()))

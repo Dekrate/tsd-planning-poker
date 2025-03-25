@@ -16,7 +16,7 @@ public class DeveloperController {
 	private final DeveloperService developerService;
 
 	@PatchMapping("/{developerId}/vote")
-	public ResponseEntity<Void> vote(@PathVariable Long developerId, @RequestParam Long tableId, @RequestParam int vote) {
+	public ResponseEntity<Void> vote(@PathVariable Long developerId, @RequestParam Long tableId, @RequestParam Integer vote) {
 		try {
 			developerService.vote(developerId, tableId, vote);
 			return ResponseEntity.noContent().build();

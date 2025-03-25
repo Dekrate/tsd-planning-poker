@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
-@NoArgsConstructor
 @Setter
 @Getter
 
@@ -47,5 +46,10 @@ public class PokerTable {
 		this.name = name;
 		this.createdAt = LocalDateTime.now();
 		this.isClosed = isClosed;
+	}
+
+	public PokerTable() {
+		this.createdAt = LocalDateTime.now();
+		this.isClosed = false;
 	}
 }
