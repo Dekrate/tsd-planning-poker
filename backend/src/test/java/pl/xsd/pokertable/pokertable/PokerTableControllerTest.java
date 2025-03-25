@@ -27,7 +27,6 @@ class PokerTableControllerTest {
 	@MockitoBean
 	private DeveloperService developerService;
 
-	// Testy dla /tables (POST)
 	@Test
 	void createTable_Success_Returns201() throws Exception {
 		PokerTable table = new PokerTable();

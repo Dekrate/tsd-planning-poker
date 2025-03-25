@@ -174,11 +174,10 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_existingDeveloper_returnsExisting() {
-		// 1. Przygotowanie danych
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("existingSession");
 
-		PokerTable table = new PokerTable(); // Dodajemy aktywny stół
+		PokerTable table = new PokerTable();
 		table.setId(1L);
 		table.setName("Test Table");
 
@@ -186,16 +185,13 @@ class DeveloperServiceTest {
 		existingDev.setId(1L);
 		existingDev.setPokerTable(table);
 
-		// 2. Mockowanie zachowań
 		when(developerRepository.findBySessionId("existingSession"))
 				.thenReturn(Optional.of(existingDev));
 		when(pokerTableRepository.findByIsClosedFalse())
 				.thenReturn(Optional.of(table));
 
-		// 3. Wywołanie metody
 		Map<String, Object> result = developerService.joinTable("ExistingDev", session);
 
-		// 4. Weryfikacja
 		assertThat(result.get("developer")).isNotNull();
 		verify(developerRepository, never()).save(any());
 	}

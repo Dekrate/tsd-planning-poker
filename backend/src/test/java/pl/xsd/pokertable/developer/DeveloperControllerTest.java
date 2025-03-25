@@ -32,7 +32,6 @@ class DeveloperControllerTest {
 	@MockitoBean
 	private PokerTableRepository pokerTableRepository;
 
-	// Testy dla endpointu /developers/{developerId}/vote
 	@Test
 	void vote_ValidRequest_Returns204() throws Exception {
 		mockMvc.perform(patch("/developers/1/vote")
@@ -52,7 +51,6 @@ class DeveloperControllerTest {
 				.andExpect(status().isBadRequest());
 	}
 
-	// Testy dla endpointu /developers (POST)
 	@Test
 	void createDeveloper_ValidRequest_Returns200() throws Exception {
 		Developer developer = new Developer();
@@ -81,7 +79,6 @@ class DeveloperControllerTest {
 				.andExpect(status().isBadRequest());
 	}
 
-	// Testy dla /developers/{developerId}/has-voted
 	@Test
 	void hasVoted_True_ReturnsTrue() throws Exception {
 		when(developerService.hasVoted(anyLong()))
@@ -125,7 +122,6 @@ class DeveloperControllerTest {
 				.andExpect(status().isNotFound());
 	}
 
-	// Testy dla /developers/poker-table/{tableId}
 	@Test
 	void getDevelopersForTable_ValidTable_Returns200() throws Exception {
 		Set<Developer> developers = Collections.singleton(new Developer());
