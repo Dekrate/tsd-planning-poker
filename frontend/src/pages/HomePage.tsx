@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DeveloperForm } from '../components/DeveloperForm';
 import { Voting } from '../components/Voting';
-import { getActiveTable, joinTable, getDevelopers, vote } from '../services/api';
+import { getActiveTable, joinTable, getDevelopers } from '../services/api';
 
 
 const API_URL = 'http://localhost:8080';
