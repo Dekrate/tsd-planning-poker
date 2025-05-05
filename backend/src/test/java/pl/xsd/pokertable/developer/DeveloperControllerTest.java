@@ -1,6 +1,7 @@
 package pl.xsd.pokertable.developer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,14 +11,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import pl.xsd.pokertable.exception.NotFoundException;
 import pl.xsd.pokertable.pokertable.PokerTable;
-import pl.xsd.pokertable.pokertable.PokerTableRepository;
 
-import java.util.Collections;
+
 import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -27,133 +27,357 @@ class DeveloperControllerTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	@Autowired
 	private MockMvc mockMvc;
+
 	@MockitoBean
 	private DeveloperService developerService;
-	@MockitoBean
-	private PokerTableRepository pokerTableRepository;
+
+	// PokerTableRepository nie jest już potrzebny jako mock bean w teście kontrolera Developera
+	// @MockBean
+	// private PokerTableRepository pokerTableRepository;
 
 	@Test
 	void vote_ValidRequest_Returns204() throws Exception {
+		// Arrange - usunięto when(), bo domyślnie void metody nic nie rzucają
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
 						.param("vote", "5"))
 				.andExpect(status().isNoContent());
+
+		// Verify że metoda serwisu została wywołana
+		verify(developerService).vote(1L, 1L, 5);
 	}
 
 	@Test
 	void vote_InvalidVoteValue_Returns400() throws Exception {
+		// Arrange
 		Mockito.doThrow(new IllegalArgumentException("Invalid vote"))
 				.when(developerService).vote(anyLong(), anyLong(), anyInt());
 
+		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
-						.param("vote", "20"))
-				.andExpect(status().isBadRequest());
+						.param("vote", "20")) // Nieprawidłowa wartość
+				.andExpect(status().isBadRequest()); // Spodziewamy się 400 dzięki GlobalExceptionHandler
+
+		// Verify
+		verify(developerService).vote(1L, 1L, 20); // Weryfikujemy wywołanie z błędną wartością
 	}
 
 	@Test
+	void vote_DeveloperNotFound_Returns404() throws Exception {
+		// Arrange
+		Mockito.doThrow(new NotFoundException("Developer not found"))
+				.when(developerService).vote(anyLong(), anyLong(), anyInt());
+
+		// Act & Assert
+		mockMvc.perform(patch("/developers/1/vote")
+						.param("tableId", "1")
+						.param("vote", "5"))
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+		verify(developerService).vote(1L, 1L, 5);
+	}
+
+	@Test
+	void vote_PokerTableNotFound_Returns404() throws Exception {
+		// Arrange
+		Mockito.doThrow(new NotFoundException("Poker table not found"))
+				.when(developerService).vote(anyLong(), anyLong(), anyInt());
+
+		// Act & Assert
+		mockMvc.perform(patch("/developers/1/vote")
+						.param("tableId", "999")
+						.param("vote", "5"))
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+		verify(developerService).vote(1L, 999L, 5);
+	}
+
+	@Test
+	void vote_DeveloperDoesNotBelongToTable_Returns400() throws Exception {
+		// Arrange
+		Mockito.doThrow(new IllegalArgumentException("Developer does not belong to this poker table."))
+				.when(developerService).vote(anyLong(), anyLong(), anyInt());
+
+		// Act & Assert
+		mockMvc.perform(patch("/developers/1/vote")
+						.param("tableId", "2") // Dev 1 doesn't belong to Table 2
+						.param("vote", "5"))
+				.andExpect(status().isBadRequest()); // Spodziewamy się 400
+		verify(developerService).vote(1L, 2L, 5);
+	}
+
+
+	@Test
 	void createDeveloper_ValidRequest_Returns200() throws Exception {
+		// Arrange
 		Developer developer = new Developer();
+		developer.setId(1L); // Dodano ID dla lepszego testu
 		developer.setName("Test");
 
 		when(developerService.createDeveloper(anyLong(), any()))
 				.thenReturn(developer);
 
+		// Act & Assert
 		mockMvc.perform(post("/developers")
 						.param("pokerTableId", "1")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(developer)))
 				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id").value(1L))
 				.andExpect(jsonPath("$.name").value("Test"));
+
+		// Verify
+		verify(developerService).createDeveloper(eq(1L), any(Developer.class));
 	}
 
 	@Test
 	void createDeveloper_InvalidTable_Returns400() throws Exception {
+		// Arrange
 		Mockito.doThrow(new IllegalArgumentException("Invalid table"))
 				.when(developerService).createDeveloper(anyLong(), any());
 
+		// Act & Assert
 		mockMvc.perform(post("/developers")
 						.param("pokerTableId", "999")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(new Developer())))
-				.andExpect(status().isBadRequest());
+				.andExpect(status().isBadRequest()); // Spodziewamy się 400
+
+		// Verify
+		verify(developerService).createDeveloper(eq(999L), any(Developer.class));
 	}
 
 	@Test
 	void hasVoted_True_ReturnsTrue() throws Exception {
+		// Arrange
 		when(developerService.hasVoted(anyLong()))
 				.thenReturn(true);
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/1/has-voted"))
 				.andExpect(status().isOk())
-				.andExpect(content().string("true"));
+				.andExpect(content().string("true")); // content().string("true") dla boolean
+
+		// Verify
+		verify(developerService).hasVoted(1L);
 	}
 
 	@Test
 	void hasVoted_False_ReturnsFalse() throws Exception {
+		// Arrange
 		when(developerService.hasVoted(anyLong()))
 				.thenReturn(false);
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/1/has-voted"))
 				.andExpect(status().isOk())
-				.andExpect(content().string("false"));
+				.andExpect(content().string("false")); // content().string("false") dla boolean
+
+		// Verify
+		verify(developerService).hasVoted(1L);
 	}
+
+	@Test
+	void hasVoted_DeveloperNotFound_Returns404() throws Exception {
+		// Arrange
+		when(developerService.hasVoted(anyLong()))
+				.thenThrow(new NotFoundException("Developer not found"));
+
+		// Act & Assert
+		mockMvc.perform(get("/developers/999/has-voted"))
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+
+		// Verify
+		verify(developerService).hasVoted(999L);
+	}
+
 
 	// Testy dla /developers/{developerId}
 	@Test
 	void getDeveloper_Exists_Returns200() throws Exception {
+		// Arrange
 		Developer developer = new Developer();
 		developer.setId(1L);
+		developer.setName("Existing Dev");
 
 		when(developerService.getDeveloper(anyLong()))
 				.thenReturn(developer);
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/1"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.id").value(1L));
+				.andExpect(jsonPath("$.id").value(1L))
+				.andExpect(jsonPath("$.name").value("Existing Dev"));
+
+		// Verify
+		verify(developerService).getDeveloper(1L);
 	}
 
 	@Test
 	void getDeveloper_NotFound_Returns404() throws Exception {
+		// Arrange
 		when(developerService.getDeveloper(anyLong()))
-				.thenThrow(new NotFoundException("Not found"));
+				.thenThrow(new NotFoundException("Developer not found"));
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/999"))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+
+		// Verify
+		verify(developerService).getDeveloper(999L);
 	}
 
+	// Testy dla /developers/poker-table/{tableId}
 	@Test
 	void getDevelopersForTable_ValidTable_Returns200() throws Exception {
-		Set<Developer> developers = Collections.singleton(new Developer());
+		// Arrange
+		Developer dev1 = new Developer();
+		dev1.setId(1L);
+		dev1.setName("Dev One");
+		Developer dev2 = new Developer();
+		dev2.setId(2L);
+		dev2.setName("Dev Two");
+		Set<Developer> developers = Set.of(dev1, dev2); // Użyto Set.of dla niemodyfikowalnej kolekcji
 
 		when(developerService.getDevelopersForPokerTable(anyLong()))
 				.thenReturn(developers);
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/poker-table/1"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$").isArray());
+				.andExpect(jsonPath("$").isArray())
+				.andExpect(jsonPath("$.length()").value(2))
+				.andExpect(jsonPath("$[0].id").exists()) // Sprawdzenie istnienia pól
+				.andExpect(jsonPath("$[0].name").exists());
+
+		// Verify
+		verify(developerService).getDevelopersForPokerTable(1L);
 	}
 
 	@Test
 	void getDevelopersForTable_InvalidTable_Returns404() throws Exception {
+		// Arrange
 		when(developerService.getDevelopersForPokerTable(anyLong()))
 				.thenThrow(new NotFoundException("Invalid table"));
 
+		// Act & Assert
 		mockMvc.perform(get("/developers/poker-table/999"))
-				.andExpect(status().isNotFound());
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+
+		// Verify
+		verify(developerService).getDevelopersForPokerTable(999L);
+	}
+
+	// Testy dla zaktualizowanego /developers/join
+	@Test
+	void joinTable_newUser_createsDeveloper_Returns200() throws Exception {
+		// Arrange
+		// Mockujemy odpowiedź serwisu dla nowej sygnatury joinTable
+		Developer newDev = new Developer("session123", "Test");
+		newDev.setId(1L);
+		PokerTable table = new PokerTable();
+		table.setId(10L);
+		table.setName("New Session");
+		Map<String, Object> serviceResponse = Map.of(
+				"developer", Map.of(
+						"id", newDev.getId(),
+						"name", newDev.getName(),
+						"sessionId", newDev.getSessionId()
+				),
+				"table", Map.of(
+						"id", table.getId(),
+						"name", table.getName(),
+						"createdAt", table.getCreatedAt() // LocalDateTime może wymagać serializacji/deserializacji
+				)
+		);
+
+		// Używamy any() dla HttpSession
+		when(developerService.joinTable(anyString(), anyLong(), any(HttpSession.class)))
+				.thenReturn(serviceResponse);
+
+		// Act & Assert
+		mockMvc.perform(post("/developers/join")
+						.param("name", "Test")
+						.param("tableId", "10")) // Dodano parametr tableId
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.developer.id").value(1L))
+				.andExpect(jsonPath("$.developer.name").value("Test"))
+				.andExpect(jsonPath("$.developer.sessionId").value("session123"))
+				.andExpect(jsonPath("$.table.id").value(10L))
+				.andExpect(jsonPath("$.table.name").value("New Session"));
+
+		// Verify że metoda serwisu została wywołana z prawidłowymi argumentami
+		verify(developerService).joinTable(eq("Test"), eq(10L), any(HttpSession.class));
 	}
 
 	@Test
-	void joinTable_newUser_createsDeveloper() throws Exception {
-		when(developerService.joinTable(anyString(), any()))
-				.thenReturn(Map.of(
-						"developer", new Developer("session123", "Test"),
-						"table", new PokerTable()
-				));
+	void joinTable_existingUser_returnsExistingDeveloper_Returns200() throws Exception {
+		// Arrange
+		// Mockujemy odpowiedź serwisu dla istniejącego developera
+		Developer existingDev = new Developer("existingSession", "ExistingDev");
+		existingDev.setId(5L);
+		PokerTable table = new PokerTable();
+		table.setId(20L);
+		table.setName("Existing Session");
 
+		Map<String, Object> serviceResponse = Map.of(
+				"developer", Map.of(
+						"id", existingDev.getId(),
+						"name", existingDev.getName(),
+						"sessionId", existingDev.getSessionId()
+				),
+				"table", Map.of(
+						"id", table.getId(),
+						"name", table.getName(),
+						"createdAt", table.getCreatedAt()
+				)
+		);
+
+		when(developerService.joinTable(anyString(), anyLong(), any(HttpSession.class)))
+				.thenReturn(serviceResponse);
+
+		// Act & Assert
 		mockMvc.perform(post("/developers/join")
-						.param("name", "Test"))
+						.param("name", "ExistingDev") // Można przekazać to samo imię lub inne, serwis powinien użyć sesji
+						.param("tableId", "20")) // Dodano parametr tableId
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.developer.sessionId").value("session123"));
+				.andExpect(jsonPath("$.developer.id").value(5L))
+				.andExpect(jsonPath("$.developer.name").value("ExistingDev"))
+				.andExpect(jsonPath("$.developer.sessionId").value("existingSession"))
+				.andExpect(jsonPath("$.table.id").value(20L));
+
+		// Verify
+		verify(developerService).joinTable(eq("ExistingDev"), eq(20L), any(HttpSession.class));
 	}
+
+
+	@Test
+	void joinTable_TableNotFound_Returns404() throws Exception {
+		// Arrange
+		Mockito.doThrow(new NotFoundException("Poker table not found"))
+				.when(developerService).joinTable(anyString(), anyLong(), any(HttpSession.class));
+
+		// Act & Assert
+		mockMvc.perform(post("/developers/join")
+						.param("name", "Test")
+						.param("tableId", "999")) // Tabela nie istnieje
+				.andExpect(status().isNotFound()); // Spodziewamy się 404
+
+		// Verify
+		verify(developerService).joinTable(eq("Test"), eq(999L), any(HttpSession.class));
+	}
+
+	@Test
+	void joinTable_GenericError_Returns500() throws Exception {
+		// Arrange
+		Mockito.doThrow(new RuntimeException("Something went wrong"))
+				.when(developerService).joinTable(anyString(), anyLong(), any(HttpSession.class));
+
+		// Act & Assert
+		mockMvc.perform(post("/developers/join")
+						.param("name", "Test")
+						.param("tableId", "1"))
+				.andExpect(status().isInternalServerError()) // Spodziewamy się 500
+				.andExpect(jsonPath("$.message").exists()); // Sprawdzenie, czy zwracana jest wiadomość błędu z GlobalExceptionHandler
+	}
+
 }

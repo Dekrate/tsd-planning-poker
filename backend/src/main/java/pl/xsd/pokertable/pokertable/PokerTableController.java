@@ -39,4 +39,10 @@ public class PokerTableController {
 		PokerTable table = pokerTableService.getActiveTable();
 		return ResponseEntity.ok(table);
 	}
+
+	@GetMapping("/{id}")
+	public ResponseEntity<PokerTable> getTableById(@PathVariable Long id) {
+		return ResponseEntity.ok(pokerTableService.getTableById(id));
+	}
 }
+

@@ -46,7 +46,7 @@ public class DeveloperService {
 		PokerTable pokerTable = pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found"));
 
-		if (!developer.getPokerTable().equals(pokerTable)) {
+		if (!developer.getPokerTable().getId().equals(pokerTable.getId())) { // Compare IDs
 			throw new IllegalArgumentException("Developer does not belong to this poker table.");
 		}
 
@@ -80,17 +80,30 @@ public class DeveloperService {
 		return developerRepository.save(developer);
 	}
 
-	public Map<String, Object> joinTable(String name, HttpSession session) {
-		PokerTable table = getActiveTable();
+	@Transactional
+	public Map<String, Object> joinTable(String name, Long tableId, HttpSession session) {
 		String sessionId = session.getId();
 
-		Developer developer = developerRepository.findBySessionId(sessionId)
-				.orElseGet(() -> {
-					Developer newDev = new Developer(sessionId, name);
-					newDev.setPokerTable(table);
-					newDev.setVote(0); // Domyślna wartość
-					return developerRepository.save(newDev);
-				});
+		PokerTable table = pokerTableRepository.findById(tableId)
+				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + tableId));
+
+		Optional<Developer> existingDeveloper = developerRepository.findBySessionId(sessionId);
+
+		Developer developer;
+
+		if (existingDeveloper.isPresent()) {
+			developer = existingDeveloper.get();
+			if (developer.getPokerTable() == null || !developer.getPokerTable().getId().equals(tableId)) {
+				developer.setPokerTable(table);
+				developer.setVote(null);
+				developerRepository.save(developer);
+			}
+		} else {
+			developer = new Developer(sessionId, name);
+			developer.setPokerTable(table);
+			developer.setVote(null);
+			developerRepository.save(developer);
+		}
 
 		return Map.of(
 				"developer", Map.of(

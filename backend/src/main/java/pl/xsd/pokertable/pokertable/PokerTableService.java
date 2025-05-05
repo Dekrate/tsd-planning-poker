@@ -3,6 +3,7 @@ package pl.xsd.pokertable.pokertable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.developer.Developer;
+import pl.xsd.pokertable.exception.NotEveryoneVotedException;
 import pl.xsd.pokertable.exception.NotFoundException;
 
 import java.util.Set;
@@ -18,10 +19,6 @@ public class PokerTableService {
 
 	@Transactional
 	public PokerTable createPokerTable(String name) {
-		if (pokerTableRepository.findByIsClosedFalse().isPresent()) {
-			throw new IllegalStateException("There is already an active poker table.");
-		}
-
 		PokerTable pokerTable = new PokerTable(null, name, false);
 		return pokerTableRepository.save(pokerTable);
 	}
@@ -32,19 +29,27 @@ public class PokerTableService {
 				.orElseThrow(() -> new NotFoundException("Poker table not found"));
 
 		Set<Developer> developers = pokerTable.getDevelopers();
-		long totalVotes = developers.stream().filter(Developer::hasVoted).count();
 		long totalDevelopers = developers.size();
 
-		if (totalVotes == totalDevelopers) {
+
+		long votedDevelopersCount = developers.stream().filter(dev -> dev.getVote() != null).count();
+
+		if (votedDevelopersCount == totalDevelopers && totalDevelopers > 0) {
 			pokerTable.setIsClosed(true);
 			pokerTableRepository.save(pokerTable);
 		} else {
-			throw new IllegalStateException("Not all developers have voted yet.");
+			throw new NotEveryoneVotedException("Not all developers have submitted a vote yet, or there are no developers at the table.");
 		}
 	}
+
 
 	public PokerTable getActiveTable() {
 		return pokerTableRepository.findByIsClosedFalse()
 				.orElseGet(() -> createPokerTable("Default Table"));
+	}
+
+	public PokerTable getTableById(Long tableId) {
+		return pokerTableRepository.findById(tableId)
+				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + tableId));
 	}
 }

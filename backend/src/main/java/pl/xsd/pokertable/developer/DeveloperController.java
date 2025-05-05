@@ -50,8 +50,7 @@ public class DeveloperController {
 	}
 
 	@PostMapping("/join")
-	public ResponseEntity<Map<String, Object>> joinTable(@RequestParam String name, HttpSession session) {
-		Map<String, Object> result = developerService.joinTable(name, session);
-		return ResponseEntity.ok(result);
+	public ResponseEntity<Map<String, Object>> joinTable(@RequestParam String name, @RequestParam Long tableId, HttpSession session) {
+		return ResponseEntity.ok(developerService.joinTable(name, tableId, session));
 	}
 }
