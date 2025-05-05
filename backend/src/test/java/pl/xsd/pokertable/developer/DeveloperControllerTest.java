@@ -31,9 +31,6 @@ class DeveloperControllerTest {
 	@MockitoBean
 	private DeveloperService developerService;
 
-	// PokerTableRepository nie jest już potrzebny jako mock bean w teście kontrolera Developera
-	// @MockBean
-	// private PokerTableRepository pokerTableRepository;
 
 	@Test
 	void vote_ValidRequest_Returns204() throws Exception {

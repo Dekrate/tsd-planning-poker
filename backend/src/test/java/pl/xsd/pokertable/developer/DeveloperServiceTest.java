@@ -31,27 +31,25 @@ class DeveloperServiceTest {
 	@Mock
 	private PokerTableRepository pokerTableRepository;
 
-	@Mock // DeveloperService używa PokerTableService w getActiveTable
+	@Mock
 	private PokerTableService pokerTableService;
 
 	@InjectMocks
 	private DeveloperService developerService;
 
 
-	// --- Testy dla vote ---
 	@Test
 	void vote_developerNotFound_throwsException() {
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.empty());
 		assertThrows(NotFoundException.class, () -> developerService.vote(1L, 1L, 5));
 
 		verify(developerRepository).findById(1L);
-		verifyNoInteractions(pokerTableRepository); // Nie powinno szukać tabeli
+		verifyNoInteractions(pokerTableRepository);
 	}
 
 	@Test
 	void vote_pokerTableNotFound_throwsException() {
 		Developer developer = new Developer();
-		// Nie musimy ustawiać tabeli dla developera na tym etapie testu
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
 
@@ -65,12 +63,12 @@ class DeveloperServiceTest {
 	void vote_developerNotInTable_throwsException() {
 		// Arrange
 		PokerTable devTable = new PokerTable();
-		devTable.setId(10L); // Developer jest w tabeli 10
+		devTable.setId(10L);
 		Developer developer = new Developer();
 		developer.setPokerTable(devTable);
 
 		PokerTable targetTable = new PokerTable();
-		targetTable.setId(20L); // Próbujemy zagłosować w tabeli 20
+		targetTable.setId(20L);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(targetTable));
@@ -81,7 +79,6 @@ class DeveloperServiceTest {
 		// Verify
 		verify(developerRepository).findById(1L);
 		verify(pokerTableRepository).findById(20L);
-		// verify nie jest potrzebne dla getterów/setterów, tylko dla interakcji z mockami
 	}
 
 	@Test
@@ -100,9 +97,8 @@ class DeveloperServiceTest {
 		// Assert
 		assertThat(exception.getMessage()).isEqualTo("Vote cannot be null");
 
-		// Verify - Walidacja następuje PRZED wywołaniem repozytoriów
-		verifyNoInteractions(developerRepository); // Upewnij się, że nie było interakcji z repozytorium developerów
-		verifyNoInteractions(pokerTableRepository); // Upewnij się, że nie było interakcji z repozytorium tabel
+		verifyNoInteractions(developerRepository);
+		verifyNoInteractions(pokerTableRepository);
 	}
 
 	@Test
@@ -110,7 +106,7 @@ class DeveloperServiceTest {
 		// Arrange
 		Long developerId = 1L;
 		Long tableId = 1L;
-		Integer invalidVote = 0; // Wartość < 1
+		Integer invalidVote = 0;
 
 		// Act & Then
 		IllegalArgumentException exception = assertThrows(
@@ -119,9 +115,8 @@ class DeveloperServiceTest {
 		);
 
 		// Assert
-		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13"); // Wiadomość z serwisu
+		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13");
 
-		// Verify - Walidacja następuje PRZED wywołaniem repozytoriów
 		verifyNoInteractions(developerRepository);
 		verifyNoInteractions(pokerTableRepository);
 	}
@@ -131,7 +126,7 @@ class DeveloperServiceTest {
 		// Arrange
 		Long developerId = 1L;
 		Long tableId = 1L;
-		Integer invalidVote = 14; // Wartość > 13
+		Integer invalidVote = 14;
 
 		// Act & Then
 		IllegalArgumentException exception = assertThrows(
@@ -140,7 +135,7 @@ class DeveloperServiceTest {
 		);
 
 		// Assert
-		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13"); // Wiadomość z serwisu
+		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13");
 
 		// Verify - Walidacja następuje PRZED wywołaniem repozytoriów
 		verifyNoInteractions(developerRepository);
@@ -154,11 +149,10 @@ class DeveloperServiceTest {
 		PokerTable table = new PokerTable();
 		table.setId(1L);
 		Developer developer = new Developer();
-		developer.setPokerTable(table); // Ustaw developera w docelowej tabeli
+		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
-		// Mock save żeby zwrócił ten sam obiekt (opcjonalne, ale dobra praktyka)
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
 
 		// Act
@@ -170,7 +164,7 @@ class DeveloperServiceTest {
 		// Verify
 		verify(developerRepository).findById(1L);
 		verify(pokerTableRepository).findById(1L);
-		verify(developerRepository).save(developer); // Sprawdzenie, że save został wywołany
+		verify(developerRepository).save(developer);
 	}
 
 	@Test
@@ -179,7 +173,7 @@ class DeveloperServiceTest {
 		PokerTable table = new PokerTable();
 		table.setId(1L);
 		Developer developer = new Developer();
-		developer.setPokerTable(table); // Ustaw developera w docelowej tabeli
+		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
@@ -199,7 +193,7 @@ class DeveloperServiceTest {
 		PokerTable table = new PokerTable();
 		table.setId(1L);
 		Developer developer = new Developer();
-		developer.setPokerTable(table); // Ustaw developera w docelowej tabeli
+		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
@@ -214,7 +208,6 @@ class DeveloperServiceTest {
 	}
 
 
-	// --- Testy dla getDeveloper ---
 	@Test
 	void getDeveloper_exists_returnsDeveloper() {
 		// Arrange
@@ -267,9 +260,9 @@ class DeveloperServiceTest {
 		when(developerRepository.findById(3L)).thenReturn(Optional.of(devWithoutVote));
 
 		// Act & Assert
-		assertThat(developerService.hasVoted(1L)).isFalse(); // false bo vote nie jest null
-		assertThat(developerService.hasVoted(2L)).isFalse(); // false bo vote nie jest null (jest 0)
-		assertThat(developerService.hasVoted(3L)).isTrue();  // true bo vote jest null
+		assertThat(developerService.hasVoted(1L)).isFalse();
+		assertThat(developerService.hasVoted(2L)).isFalse();
+		assertThat(developerService.hasVoted(3L)).isTrue();
 
 		// Verify
 		verify(developerRepository).findById(1L);
@@ -290,7 +283,6 @@ class DeveloperServiceTest {
 	}
 
 
-	// --- Testy dla getDevelopersForPokerTable ---
 	@Test
 	void getDevelopersForPokerTable_validTable_returnsDevelopers() {
 		// Arrange
@@ -324,14 +316,12 @@ class DeveloperServiceTest {
 	}
 
 
-	// --- Testy dla createDeveloper ---
-	// Ta metoda może być uznana za przestarzałą po zmianie joinTable, ale testujemy ją, bo istnieje
 	@Test
 	void createDeveloper_validTable_savesDeveloper() {
 		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
-		Developer developer = new Developer(); // Nowy developer do zapisania
+		Developer developer = new Developer();
 
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
@@ -341,8 +331,8 @@ class DeveloperServiceTest {
 
 		// Assert
 		assertThat(result).isEqualTo(developer);
-		assertThat(result.getPokerTable()).isEqualTo(table); // Sprawdzamy, czy tabela została poprawnie ustawiona
-		assertThat(result.getVote()).isNull(); // Sprawdzamy, czy vote jest null (zgodnie ze zmianą w serwisie)
+		assertThat(result.getPokerTable()).isEqualTo(table);
+		assertThat(result.getVote()).isNull();
 
 		// Verify
 		verify(pokerTableRepository).findById(1L);
@@ -359,11 +349,10 @@ class DeveloperServiceTest {
 
 		// Verify
 		verify(pokerTableRepository).findById(1L);
-		verify(developerRepository, never()).save(any()); // Save nie powinno być wywołane
+		verify(developerRepository, never()).save(any());
 	}
 
 
-	// --- Testy dla zaktualizowanego joinTable(String name, Long tableId, HttpSession session) ---
 
 	@Test
 	void joinTable_newDeveloper_createsNewDeveloperAndAssociatesWithTable() {
@@ -376,17 +365,16 @@ class DeveloperServiceTest {
 		table.setId(targetTableId);
 		table.setName("New Table");
 
-		Developer newDev = new Developer("newSession123", "NewDev"); // Developer stworzony przez logikę serwisu
-		newDev.setId(1L); // ID ustawione po zapisie
+		Developer newDev = new Developer("newSession123", "NewDev");
+		newDev.setId(1L);
 
-		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(table));
-		when(developerRepository.findBySessionId(eq("newSession123"))).thenReturn(Optional.empty());
-		// Mockujemy save, aby zwrócił obiekt developera z ustawionym ID, tabelą i vote=null
+		when(pokerTableRepository.findById(targetTableId)).thenReturn(Optional.of(table));
+		when(developerRepository.findBySessionId("newSession123")).thenReturn(Optional.empty());
 		when(developerRepository.save(any(Developer.class))).thenAnswer(invocation -> {
 			Developer devToSave = invocation.getArgument(0);
-			devToSave.setId(1L); // Symulacja ustawienia ID przez JPA
-			devToSave.setPokerTable(table); // Symulacja ustawienia tabeli
-			devToSave.setVote(null); // Symulacja ustawienia domyślnego głosu (null)
+			devToSave.setId(1L);
+			devToSave.setPokerTable(table);
+			devToSave.setVote(null);
 			return devToSave;
 		});
 
@@ -409,11 +397,11 @@ class DeveloperServiceTest {
 		assertThat(tableMap).containsKey("name").containsValue("New Table");
 
 		// Verify
-		verify(session).getId(); // Upewnij się, że pobrano ID sesji
-		verify(pokerTableRepository).findById(targetTableId); // Upewnij się, że znaleziono tabelę docelową
-		verify(developerRepository).findBySessionId("newSession123"); // Upewnij się, że sprawdzono istniejącego developera
-		verify(developerRepository).save(any(Developer.class)); // Upewnij się, że zapisano nowego developera
-		verify(pokerTableRepository, never()).findByIsClosedFalse(); // Upewnij się, że nie użyto getActiveTable
+		verify(session).getId();
+		verify(pokerTableRepository).findById(targetTableId);
+		verify(developerRepository).findBySessionId("newSession123");
+		verify(developerRepository).save(any(Developer.class));
+		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
 
 	@Test
@@ -429,21 +417,20 @@ class DeveloperServiceTest {
 
 		Developer existingDev = new Developer("existingSession456", "ExistingDev");
 		existingDev.setId(5L);
-		existingDev.setPokerTable(table); // Developer jest już w tej tabeli
-		existingDev.setVote(5); // Miał już jakiś głos
+		existingDev.setPokerTable(table);
+		existingDev.setVote(5);
 
 		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(table));
 		when(developerRepository.findBySessionId(eq("existingSession456"))).thenReturn(Optional.of(existingDev));
 
 		// Act
-		Map<String, Object> result = developerService.joinTable("ExistingDev", targetTableId, session); // Imię może być takie samo lub inne
+		Map<String, Object> result = developerService.joinTable("ExistingDev", targetTableId, session);
 
 		// Assert
 		assertThat(result).isNotNull();
 		Map<String, Object> developerMap = (Map<String, Object>) result.get("developer");
-		assertThat(developerMap).containsKey("id").containsValue(5L); // Zwrócono istniejące ID
-		assertThat(developerMap).containsKey("name").containsValue("ExistingDev"); // Zwrócono istniejące imię
-		// Vote i tabela developera nie powinny być zmienione
+		assertThat(developerMap).containsKey("id").containsValue(5L);
+		assertThat(developerMap).containsKey("name").containsValue("ExistingDev");
 		assertThat(existingDev.getPokerTable().getId()).isEqualTo(targetTableId);
 		assertThat(existingDev.getVote()).isEqualTo(5);
 
@@ -452,7 +439,7 @@ class DeveloperServiceTest {
 		verify(session).getId();
 		verify(pokerTableRepository).findById(targetTableId);
 		verify(developerRepository).findBySessionId("existingSession456");
-		verify(developerRepository, never()).save(any()); // Upewnij się, że nie zapisano (nie zmieniono) developera
+		verify(developerRepository, never()).save(any());
 		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
 
@@ -475,32 +462,31 @@ class DeveloperServiceTest {
 
 		Developer existingDev = new Developer("sessionToMove", "MovingDev");
 		existingDev.setId(10L);
-		existingDev.setPokerTable(oldTable); // Developer jest w starej tabeli
-		existingDev.setVote(8); // Miał jakiś głos w starej tabeli
+		existingDev.setPokerTable(oldTable);
+		existingDev.setVote(8);
 
 
-		when(pokerTableRepository.findById(eq(newTableId))).thenReturn(Optional.of(newTable)); // Szukamy nowej tabeli
-		when(developerRepository.findBySessionId(eq("sessionToMove"))).thenReturn(Optional.of(existingDev)); // Znaleziono developera po sesji
-		when(developerRepository.save(any(Developer.class))).thenReturn(existingDev); // Mock zapisu
+		when(pokerTableRepository.findById(eq(newTableId))).thenReturn(Optional.of(newTable));
+		when(developerRepository.findBySessionId(eq("sessionToMove"))).thenReturn(Optional.of(existingDev));
+		when(developerRepository.save(any(Developer.class))).thenReturn(existingDev);
 
 		// Act
-		Map<String, Object> result = developerService.joinTable("MovingDev", newTableId, session); // Dołącza do nowej tabeli
+		Map<String, Object> result = developerService.joinTable("MovingDev", newTableId, session);
 
 		// Assert
 		assertThat(result).isNotNull();
 		Map<String, Object> developerMap = (Map<String, Object>) result.get("developer");
 		assertThat(developerMap).containsKey("id").containsValue(10L);
-		assertThat(developerMap).containsKey("name").containsValue("MovingDev"); // Imię może być zaktualizowane w logice serwisu, ale testujemy co zwrócono
+		assertThat(developerMap).containsKey("name").containsValue("MovingDev");
 
-		// Sprawdź, czy developer został zaktualizowany w bazie
-		assertThat(existingDev.getPokerTable().getId()).isEqualTo(newTableId); // Tabela powinna być zmieniona
-		assertThat(existingDev.getVote()).isNull(); // Głos powinien być zresetowany do null
+		assertThat(existingDev.getPokerTable().getId()).isEqualTo(newTableId);
+		assertThat(existingDev.getVote()).isNull();
 
 		// Verify
 		verify(session).getId();
-		verify(pokerTableRepository).findById(newTableId); // Szukano nowej tabeli
-		verify(developerRepository).findBySessionId("sessionToMove"); // Znaleziono developera
-		verify(developerRepository).save(existingDev); // Upewnij się, że zapisano zaktualizowanego developera
+		verify(pokerTableRepository).findById(newTableId);
+		verify(developerRepository).findBySessionId("sessionToMove");
+		verify(developerRepository).save(existingDev);
 		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
 
@@ -512,7 +498,7 @@ class DeveloperServiceTest {
 		when(session.getId()).thenReturn("sessionError");
 		Long nonExistentTableId = 999L;
 
-		when(pokerTableRepository.findById(eq(nonExistentTableId))).thenReturn(Optional.empty()); // Tabela nie istnieje
+		when(pokerTableRepository.findById(eq(nonExistentTableId))).thenReturn(Optional.empty());
 
 		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.joinTable("Test", nonExistentTableId, session));
@@ -520,7 +506,7 @@ class DeveloperServiceTest {
 		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(nonExistentTableId);
-		verify(developerRepository, never()).findBySessionId(anyString()); // Nie powinno szukać developera
+		verify(developerRepository, never()).findBySessionId(anyString());
 		verify(developerRepository, never()).save(any());
 		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
@@ -539,13 +525,11 @@ class DeveloperServiceTest {
 
 		Developer existingDevWithNullTable = new Developer("sessionWithNullTable", "DevWithNullTable");
 		existingDevWithNullTable.setId(15L);
-		// existingDevWithNullTable.setPokerTable(null); // pokerTable is null by default for new objects
-		existingDevWithNullTable.setVote(7); // Give it a vote to ensure it's reset
+		existingDevWithNullTable.setVote(7);
 
 
-		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(targetTable)); // Szukamy docelowej tabeli
-		when(developerRepository.findBySessionId(eq("sessionWithNullTable"))).thenReturn(Optional.of(existingDevWithNullTable)); // Znaleziono developera po sesji, ale ma null table
-		// Mock zapisu - powinien otrzymać obiekt existingDevWithNullTable po jego modyfikacji przez serwis
+		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(targetTable));
+		when(developerRepository.findBySessionId(eq("sessionWithNullTable"))).thenReturn(Optional.of(existingDevWithNullTable));
 		when(developerRepository.save(any(Developer.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
 
@@ -558,27 +542,25 @@ class DeveloperServiceTest {
 		assertThat(developerMap).containsKey("id").containsValue(15L);
 		assertThat(developerMap).containsKey("name").containsValue("DevWithNullTable");
 
-		// Sprawdź, czy developer został zaktualizowany w bazie (czyli obiekt, który został zapisany)
-		assertThat(existingDevWithNullTable.getPokerTable().getId()).isEqualTo(targetTableId); // Tabela powinna być ustawiona na docelową
-		assertThat(existingDevWithNullTable.getVote()).isNull(); // Głos powinien być zresetowany do null
+		assertThat(existingDevWithNullTable.getPokerTable().getId()).isEqualTo(targetTableId);
+		assertThat(existingDevWithNullTable.getVote()).isNull();
 
 		// Verify
 		verify(session).getId();
-		verify(pokerTableRepository).findById(targetTableId); // Szukano docelowej tabeli
-		verify(developerRepository).findBySessionId("sessionWithNullTable"); // Znaleziono developera
-		verify(developerRepository).save(existingDevWithNullTable); // Upewnij się, że zapisano ZAKTUALIZOWANEGO developera
+		verify(pokerTableRepository).findById(targetTableId);
+		verify(developerRepository).findBySessionId("sessionWithNullTable");
+		verify(developerRepository).save(existingDevWithNullTable);
 		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
 
-	// --- Testy dla getActiveTable ---
 	@Test
 	void getActiveTable_noActiveTable_createsNew() {
 		// Arrange
 		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.empty());
 
-		PokerTable newTable = new PokerTable(); // Obiekt, który zostanie zwrócony przez mockowany serwis
+		PokerTable newTable = new PokerTable();
 		newTable.setId(1L);
-		newTable.setName("Blank"); // Nazwa powinna być zgodna z argumentem w DeveloperService
+		newTable.setName("Blank");
 
 		// Mockujemy wywołanie metody z drugiego serwisu
 		// Zmieniamy oczekiwany argument na "Blank"
@@ -590,14 +572,13 @@ class DeveloperServiceTest {
 		// Assert
 		assertThat(result).isEqualTo(newTable);
 		assertThat(result.getId()).isEqualTo(1L);
-		assertThat(result.getName()).isEqualTo("Blank"); // Sprawdzamy nazwę
+		assertThat(result.getName()).isEqualTo("Blank");
 
 		// Verify
-		verify(pokerTableRepository).findByIsClosedFalse(); // Sprawdzenie, że szukano aktywnej
-		// Zmieniamy oczekiwany argument w weryfikacji na "Blank"
-		verify(pokerTableService).createPokerTable("Blank"); // Sprawdzenie, że wywołano metodę tworzenia z poprawnym argumentem
-		verifyNoMoreInteractions(pokerTableService); // Upewnij się, że nic więcej nie było wywołane
-		verifyNoInteractions(developerRepository); // Upewnij się, że repozytorium developera nie było użyte
+		verify(pokerTableRepository).findByIsClosedFalse();
+		verify(pokerTableService).createPokerTable("Blank");
+		verifyNoMoreInteractions(pokerTableService);
+		verifyNoInteractions(developerRepository);
 	}
 
 
@@ -619,7 +600,7 @@ class DeveloperServiceTest {
 
 		// Verify
 		verify(pokerTableRepository).findByIsClosedFalse();
-		verifyNoInteractions(pokerTableService); // Upewnij się, że nie tworzono nowej tabeli
+		verifyNoInteractions(pokerTableService);
 	}
 
 }

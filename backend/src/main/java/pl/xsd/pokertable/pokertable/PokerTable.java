@@ -1,14 +1,12 @@
 package pl.xsd.pokertable.pokertable;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import pl.xsd.pokertable.developer.Developer;
+import pl.xsd.pokertable.userstory.UserStory;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -33,6 +31,10 @@ public class PokerTable {
 	@OneToMany(mappedBy = "pokerTable", fetch = FetchType.EAGER)
 	@JsonBackReference // ← Ważna adnotacja
 	private Set<Developer> developers;
+
+	@OneToMany(mappedBy = "pokerTable", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true) // Add relationship to UserStory
+	@JsonIgnore
+	private Set<UserStory> userStories;
 
 	public PokerTable(Long id, String name) {
 		this.id = id;
