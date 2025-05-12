@@ -1,21 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Button, Alert } from 'react-bootstrap'; // Added Alert for error display
+import { Button, Alert } from 'react-bootstrap';
 import { DeveloperForm } from '../components/DeveloperForm';
 import { Voting } from '../components/Voting';
-import { UserStoryForm } from '../components/UserStoryForm'; // Import UserStoryForm
-import { UserStoryList } from '../components/UserStoryList'; // Import UserStoryList
+import { UserStoryForm } from '../components/UserStoryForm';
+import { UserStoryList } from '../components/UserStoryList';
 
 import {
   joinTable,
   getDevelopers,
   getTableById,
   createTable,
-  getUserStoriesByTableId, // Import new API calls
+  getUserStoriesByTableId,
   createUserStory,
   updateUserStory,
   deleteUserStory,
-  UserStory, // Import UserStory type
+  UserStory,
 } from '../services/api';
 
 
@@ -29,14 +29,14 @@ export const HomePage = () => {
   const [table, setTable] = useState<any>(null);
   const [developer, setDeveloper] = useState<any>(null);
   const [developersList, setDevelopersList] = useState<any[]>([]);
-  const [userStories, setUserStories] = useState<UserStory[]>([]); // State for user stories
-  const [editingStoryId, setEditingStoryId] = useState<number | null>(null); // State for editing mode
+  const [userStories, setUserStories] = useState<UserStory[]>([]);
+  const [editingStoryId, setEditingStoryId] = useState<number | null>(null);
 
   const [mode, setMode] = useState<PageMode>('loading');
   const [error, setError] = useState<string | null>(null);
   const [tableDetailsForJoin, setTableDetailsForJoin] = useState<any>(null);
-  const [isProcessing, setIsProcessing] = useState(false); // For main page actions (join, create)
-  const [isUserStoryProcessing, setIsUserStoryProcessing] = useState(false); // For user story actions
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isUserStoryProcessing, setIsUserStoryProcessing] = useState(false);
 
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
@@ -44,11 +44,10 @@ export const HomePage = () => {
   const [currentUserHasVoted, setCurrentUserHasVoted] = useState(false);
 
 
-  // Initial load effect
   useEffect(() => {
     const init = async () => {
       const tableIdFromUrl = searchParams.get('tableId');
-      setIsProcessing(true); // Set processing for initial load
+      setIsProcessing(true);
       if (tableIdFromUrl) {
         setMode('loading');
         try {
@@ -85,8 +84,7 @@ export const HomePage = () => {
     init();
   }, [searchParams]);
 
-  // Effect to fetch developers when table and developer state change
-  // and poll if user has voted
+
   useEffect(() => {
     let interval: NodeJS.Timeout | undefined;
 
@@ -96,36 +94,32 @@ export const HomePage = () => {
         setDevelopersList(devs);
       } catch (err) {
         console.error("Failed to fetch developers:", err);
-        // Optionally set an error, but maybe not critical enough to block everything
       }
     };
 
     const checkVoteStatusAndPoll = async () => {
       if (developer?.id && table?.id) {
         try {
-          const response = await fetch(`http://localhost:8080/developers/${developer.id}/has-voted`); // Use direct fetch for simplicity or update api.ts if needed
+          const response = await fetch(`http://localhost:8080/developers/${developer.id}/has-voted`);
           if (!response.ok) throw new Error('Failed to check vote status');
           const hasNotVoted = await response.json();
           const userVoted = !hasNotVoted;
           setCurrentUserHasVoted(userVoted);
 
-          // Start polling if user has voted (meaning votes might be revealed soon)
           if (userVoted) {
-            // Fetch immediately and then start interval
             fetchDevelopers(table.id);
             interval = setInterval(() => fetchDevelopers(table.id), 3000);
           } else {
-            // If user hasn't voted, fetch developers once to get current state (e.g., new joiners)
             fetchDevelopers(table.id);
           }
 
         } catch (err) {
           console.error("Failed to check vote status or poll:", err);
-          setCurrentUserHasVoted(false); // Assume not voted or error
+          setCurrentUserHasVoted(false);
         }
       } else {
+        setDevelopersList([]);
         setCurrentUserHasVoted(false);
-        setDevelopersList([]); // Clear list if not on table
       }
     };
 
@@ -143,10 +137,9 @@ export const HomePage = () => {
       }
     };
 
-  }, [developer, table]); // Depend on developer and table state
+  }, [developer, table]);
 
 
-  // Effect to fetch user stories when table state changes
   useEffect(() => {
     const fetchUserStories = async () => {
       if (table?.id) {
@@ -155,15 +148,14 @@ export const HomePage = () => {
           setUserStories(stories);
         } catch (err) {
           console.error("Failed to fetch user stories:", err);
-          // Optionally set error
         }
       } else {
-        setUserStories([]); // Clear stories if not on a table
+        setUserStories([]);
       }
     };
 
     fetchUserStories();
-  }, [table]); // Depend on table state
+  }, [table]);
 
 
   const handleJoin = async (name: string) => {
@@ -185,7 +177,6 @@ export const HomePage = () => {
       setTable(response.table);
       setMode('on-table');
 
-      // Fetch developers and stories immediately after joining
       const devs = await getDevelopers(response.table.id);
       setDevelopersList(devs);
       const stories = await getUserStoriesByTableId(response.table.id);
@@ -201,7 +192,6 @@ export const HomePage = () => {
     } catch (err: any) {
       console.error("Error joining session:", err);
       setError(`Failed to join session: ${err.response?.data?.message || err.message || 'Unknown error'}`);
-      // Stay in joining-specific mode or move to error mode depending on desired flow
       setMode('error');
     } finally {
       setIsProcessing(false);
@@ -225,8 +215,6 @@ export const HomePage = () => {
 
   const handleVoteSuccess = async () => {
     setCurrentUserHasVoted(true);
-    // Developer list polling will start automatically due to useEffect dependency
-    // Fetch developers once immediately after voting to update the list
     if (table?.id) {
       try {
         const devs = await getDevelopers(table.id);
@@ -259,15 +247,14 @@ export const HomePage = () => {
     }
   };
 
-  // --- User Story Handlers ---
 
   const fetchUserStoriesForTable = useCallback(async () => {
     if (table?.id) {
-      setIsUserStoryProcessing(true); // Set processing for story list fetch
+      setIsUserStoryProcessing(true);
       try {
         const stories = await getUserStoriesByTableId(table.id);
         setUserStories(stories);
-        setError(null); // Clear story-related errors on successful fetch
+        setError(null);
       } catch (err: any) {
         console.error("Failed to fetch user stories:", err);
         setError(`Failed to load user stories: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -277,7 +264,7 @@ export const HomePage = () => {
     } else {
       setUserStories([]);
     }
-  }, [table?.id]); // Dependency on table.id
+  }, [table?.id]);
 
   const handleAddStory = async (storyData: { title: string; description?: string; estimatedPoints?: number | null }) => {
     if (!table?.id) return;
@@ -285,7 +272,7 @@ export const HomePage = () => {
     setError(null);
     try {
       await createUserStory(table.id, storyData);
-      await fetchUserStoriesForTable(); // Refresh the list
+      await fetchUserStoriesForTable();
     } catch (err: any) {
       console.error("Error creating user story:", err);
       setError(`Failed to create user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -296,7 +283,7 @@ export const HomePage = () => {
 
   const handleEditStoryClick = (storyId: number) => {
     setEditingStoryId(storyId);
-    setError(null); // Clear any previous errors when starting edit
+    setError(null);
   };
 
   const handleUpdateStory = async (storyId: number, storyData: { title: string; description?: string; estimatedPoints?: number | null }) => {
@@ -305,8 +292,8 @@ export const HomePage = () => {
     setError(null);
     try {
       await updateUserStory(storyId, storyData);
-      setEditingStoryId(null); // Exit editing mode
-      await fetchUserStoriesForTable(); // Refresh the list
+      setEditingStoryId(null);
+      await fetchUserStoriesForTable();
     } catch (err: any) {
       console.error("Error updating user story:", err);
       setError(`Failed to update user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -317,7 +304,7 @@ export const HomePage = () => {
 
   const handleCancelEditStory = () => {
     setEditingStoryId(null);
-    setError(null); // Clear any previous errors when cancelling edit
+    setError(null);
   };
 
 
@@ -327,7 +314,7 @@ export const HomePage = () => {
     setError(null);
     try {
       await deleteUserStory(storyId);
-      await fetchUserStoriesForTable(); // Refresh the list
+      await fetchUserStoriesForTable();
     } catch (err: any) {
       console.error("Error deleting user story:", err);
       setError(`Failed to delete user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -336,8 +323,15 @@ export const HomePage = () => {
     }
   };
 
+  const handleExportStories = () => {
+    if (table?.id) {
+      // Use a simple link/anchor tag to trigger the download
+      // This relies on the browser handling the file download from the backend response
+      const exportUrl = `http://localhost:8080/tables/${table.id}/export-stories`;
+      window.open(exportUrl, '_blank'); // Open in new tab to trigger download
+    }
+  };
 
-  // --- Render Logic ---
 
   if (mode === 'loading') {
     return <div className="container mt-5">Loading planning session...</div>;
@@ -346,7 +340,6 @@ export const HomePage = () => {
   if (mode === 'error') {
     return <div className="container mt-5">
       <Alert variant="danger">Error: {error || "An unexpected error occurred."}</Alert>
-      {/* Optionally provide a button to go back or try creating a new session */}
       {searchParams.get('tableId') && mode === 'error' && (
           <Button variant="secondary" onClick={() => navigate('/')}>
             Back to Home / Create New Session
@@ -400,16 +393,30 @@ export const HomePage = () => {
                   onUpdateSubmit={handleUpdateStory}
                   onCancelEdit={handleCancelEditStory}
                   editingStoryId={editingStoryId}
-                  isSubmitting={isUserStoryProcessing} // Pass user story specific processing state
+                  isSubmitting={isUserStoryProcessing}
               />
 
               {/* Add New Story Form (only if not editing) */}
               {editingStoryId === null && (
                   <UserStoryForm
                       onSubmit={handleAddStory}
-                      isSubmitting={isUserStoryProcessing} // Pass user story specific processing state
+                      isSubmitting={isUserStoryProcessing}
                   />
               )}
+
+              {/* Export Button */}
+              {userStories.length > 0 && ( // Show export button only if there are stories
+                  <div className="mt-4">
+                    <Button
+                        variant="outline-secondary"
+                        onClick={handleExportStories}
+                        disabled={isUserStoryProcessing}
+                    >
+                      Export Stories to CSV (for JIRA)
+                    </Button>
+                  </div>
+              )}
+
 
               {/* Participants Section */}
               <div className="card mt-4 mb-4">
@@ -433,7 +440,7 @@ export const HomePage = () => {
                           ) : (
                               <span className="text-muted">
                          {dev.id === developer.id ?
-                             (dev.vote != null && dev.vote !== 0 ? `Your vote: ${dev.vote}` : 'Waiting for your vote') :
+                             (dev.vote != null && dev.vote !== 0 ? `Your vote: ${dev.vote}` : 'Vote hidden') :
                              'Vote hidden'}
                        </span>
                           )}

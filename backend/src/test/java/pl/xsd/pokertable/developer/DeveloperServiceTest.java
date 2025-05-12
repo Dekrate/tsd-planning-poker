@@ -137,7 +137,7 @@ class DeveloperServiceTest {
 		// Assert
 		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13");
 
-		// Verify - Walidacja następuje PRZED wywołaniem repozytoriów
+		// Verify
 		verifyNoInteractions(developerRepository);
 		verifyNoInteractions(pokerTableRepository);
 	}
@@ -238,8 +238,6 @@ class DeveloperServiceTest {
 	}
 
 
-	// --- Testy dla hasVoted ---
-	// hasVoted() zwraca true gdy vote == null
 	@Test
 	void hasVoted_developerExists_returnsCorrectStatus() {
 		// Arrange
@@ -353,7 +351,6 @@ class DeveloperServiceTest {
 	}
 
 
-
 	@Test
 	void joinTable_newDeveloper_createsNewDeveloperAndAssociatesWithTable() {
 		// Arrange
@@ -390,7 +387,6 @@ class DeveloperServiceTest {
 		assertThat(developerMap).containsKey("id").containsValue(1L);
 		assertThat(developerMap).containsKey("name").containsValue("NewDev");
 		assertThat(developerMap).containsKey("sessionId").containsValue("newSession123");
-		// vote nie jest zwracany w mapie w joinTable w DeveloperService, więc nie testujemy go w mapie wynikowej
 
 		Map<String, Object> tableMap = (Map<String, Object>) result.get("table");
 		assertThat(tableMap).containsKey("id").containsValue(targetTableId);
@@ -498,7 +494,7 @@ class DeveloperServiceTest {
 		when(session.getId()).thenReturn("sessionError");
 		Long nonExistentTableId = 999L;
 
-		when(pokerTableRepository.findById(eq(nonExistentTableId))).thenReturn(Optional.empty());
+		when(pokerTableRepository.findById(nonExistentTableId)).thenReturn(Optional.empty());
 
 		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.joinTable("Test", nonExistentTableId, session));
@@ -510,7 +506,6 @@ class DeveloperServiceTest {
 		verify(developerRepository, never()).save(any());
 		verify(pokerTableRepository, never()).findByIsClosedFalse();
 	}
-// Inside DeveloperServiceTest
 
 	@Test
 	void joinTable_existingDeveloperWithNullTable_updatesDeveloperTableAndResetsVote() {
@@ -534,7 +529,7 @@ class DeveloperServiceTest {
 
 
 		// Act
-		Map<String, Object> result = developerService.joinTable("DevWithNullTable", targetTableId, session); // Dołącza do targetTable
+		Map<String, Object> result = developerService.joinTable("DevWithNullTable", targetTableId, session);
 
 		// Assert
 		assertThat(result).isNotNull();
@@ -562,8 +557,6 @@ class DeveloperServiceTest {
 		newTable.setId(1L);
 		newTable.setName("Blank");
 
-		// Mockujemy wywołanie metody z drugiego serwisu
-		// Zmieniamy oczekiwany argument na "Blank"
 		when(pokerTableService.createPokerTable("Blank")).thenReturn(newTable);
 
 		// Act
@@ -580,7 +573,6 @@ class DeveloperServiceTest {
 		verifyNoMoreInteractions(pokerTableService);
 		verifyNoInteractions(developerRepository);
 	}
-
 
 
 	@Test

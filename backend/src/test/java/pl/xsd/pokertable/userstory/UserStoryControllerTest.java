@@ -47,7 +47,7 @@ class UserStoryControllerTest {
 		userStory.setTitle("As a user, I want...");
 		userStory.setDescription("...");
 		userStory.setEstimatedPoints(5);
-		userStory.setPokerTable(pokerTable); // This won't be serialized due to @JsonIgnore
+		userStory.setPokerTable(pokerTable);
 	}
 
 	@Test
@@ -127,7 +127,7 @@ class UserStoryControllerTest {
 		// Act & Assert
 		mockMvc.perform(get("/user-stories/{storyId}", nonExistentStoryId))
 				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId))); // Verify error response format
+				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
 		verify(userStoryService).getUserStoryById(nonExistentStoryId);
 	}
@@ -149,7 +149,7 @@ class UserStoryControllerTest {
 				.andExpect(jsonPath("$", hasSize(2)))
 				.andExpect(jsonPath("$[*].id", containsInAnyOrder(10, 11)))
 				.andExpect(jsonPath("$[*].title", containsInAnyOrder("As a user, I want...", "Another Story")))
-				.andExpect(jsonPath("$[*].estimatedPoints", containsInAnyOrder(5, 8))); // Assert estimated points
+				.andExpect(jsonPath("$[*].estimatedPoints", containsInAnyOrder(5, 8)));
 
 		verify(userStoryService).getUserStoriesForTable(tableId);
 	}
@@ -165,7 +165,7 @@ class UserStoryControllerTest {
 		mockMvc.perform(get("/user-stories/table/{tableId}", tableId))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$", hasSize(0))); // Assert empty array
+				.andExpect(jsonPath("$", hasSize(0)));
 
 		verify(userStoryService).getUserStoriesForTable(tableId);
 	}
@@ -177,7 +177,7 @@ class UserStoryControllerTest {
 		UserStory updatedDetails = new UserStory();
 		updatedDetails.setTitle("Title Updated");
 		updatedDetails.setDescription("Description Updated");
-		updatedDetails.setEstimatedPoints(13); // Update estimated points
+		updatedDetails.setEstimatedPoints(13);
 
 		UserStory updatedStory = new UserStory();
 		updatedStory.setId(storyId);
@@ -197,7 +197,7 @@ class UserStoryControllerTest {
 				.andExpect(jsonPath("$.id", is(storyId.intValue())))
 				.andExpect(jsonPath("$.title", is("Title Updated")))
 				.andExpect(jsonPath("$.description", is("Description Updated")))
-				.andExpect(jsonPath("$.estimatedPoints", is(13))); // Assert updated estimated points
+				.andExpect(jsonPath("$.estimatedPoints", is(13)));
 
 		verify(userStoryService).updateUserStory(eq(storyId), any(UserStory.class));
 	}
@@ -217,7 +217,7 @@ class UserStoryControllerTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(updatedDetails)))
 				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId))); // Verify error response format
+				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
 		verify(userStoryService).updateUserStory(eq(nonExistentStoryId), any(UserStory.class));
 	}
@@ -246,18 +246,9 @@ class UserStoryControllerTest {
 		// Act & Assert
 		mockMvc.perform(delete("/user-stories/{storyId}", nonExistentStoryId))
 				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId))); // Verify error response format
+				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
 		verify(userStoryService).deleteUserStory(nonExistentStoryId);
 	}
 
-	// Helper constructor for UserStory with ID and pokerTable (for test data setup)
-	// Add this to your UserStory entity if you need it for test data setup.
-	// public UserStory(Long id, String title, String description, Integer estimatedPoints, PokerTable pokerTable) {
-	//     this.id = id;
-	//     this.title = title;
-	//     this.description = description;
-	//     this.estimatedPoints = estimatedPoints;
-	//     this.pokerTable = pokerTable;
-	// }
 }

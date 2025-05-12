@@ -1,9 +1,12 @@
 package pl.xsd.pokertable.pokertable;
 
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.xsd.pokertable.developer.DeveloperService;
+import pl.xsd.pokertable.exception.NotFoundException;
 
 @RestController
 @RequestMapping("/tables")
@@ -43,6 +46,19 @@ public class PokerTableController {
 	@GetMapping("/{id}")
 	public ResponseEntity<PokerTable> getTableById(@PathVariable Long id) {
 		return ResponseEntity.ok(pokerTableService.getTableById(id));
+	}
+
+	@GetMapping("/{tableId}/export-stories")
+	public ResponseEntity<byte[]> exportUserStories(@PathVariable Long tableId) {
+		byte[] csvBytes = pokerTableService.exportUserStoriesToCsv(tableId);
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.parseMediaType("text/csv"));
+		headers.setContentDispositionFormData("attachment", "poker-planning-export-" + tableId + ".csv");
+
+		return ResponseEntity.ok()
+				.headers(headers)
+				.body(csvBytes);
 	}
 }
 

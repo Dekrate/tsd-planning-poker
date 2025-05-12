@@ -95,7 +95,7 @@ class PokerTableServiceTest {
 
 
 		NotEveryoneVotedException exception = assertThrows(NotEveryoneVotedException.class, () -> {
-			pokerTableService.closePokerTable(1L); // <-- Tutaj wywołujemy metodę testowaną
+			pokerTableService.closePokerTable(1L);
 		});
 
 		assertThat(exception.getMessage()).isEqualTo("Not all developers have submitted a vote yet, or there are no developers at the table.");

@@ -34,13 +34,11 @@ class DeveloperControllerTest {
 
 	@Test
 	void vote_ValidRequest_Returns204() throws Exception {
-		// Arrange - usunięto when(), bo domyślnie void metody nic nie rzucają
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
 						.param("vote", "5"))
 				.andExpect(status().isNoContent());
 
-		// Verify że metoda serwisu została wywołana
 		verify(developerService).vote(1L, 1L, 5);
 	}
 
@@ -53,11 +51,11 @@ class DeveloperControllerTest {
 		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
-						.param("vote", "20")) // Nieprawidłowa wartość
-				.andExpect(status().isBadRequest()); // Spodziewamy się 400 dzięki GlobalExceptionHandler
+						.param("vote", "20"))
+				.andExpect(status().isBadRequest());
 
 		// Verify
-		verify(developerService).vote(1L, 1L, 20); // Weryfikujemy wywołanie z błędną wartością
+		verify(developerService).vote(1L, 1L, 20);
 	}
 
 	@Test
@@ -84,7 +82,7 @@ class DeveloperControllerTest {
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "999")
 						.param("vote", "5"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+				.andExpect(status().isNotFound());
 		verify(developerService).vote(1L, 999L, 5);
 	}
 
@@ -96,9 +94,9 @@ class DeveloperControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
-						.param("tableId", "2") // Dev 1 doesn't belong to Table 2
+						.param("tableId", "2")
 						.param("vote", "5"))
-				.andExpect(status().isBadRequest()); // Spodziewamy się 400
+				.andExpect(status().isBadRequest());
 		verify(developerService).vote(1L, 2L, 5);
 	}
 
@@ -107,7 +105,7 @@ class DeveloperControllerTest {
 	void createDeveloper_ValidRequest_Returns200() throws Exception {
 		// Arrange
 		Developer developer = new Developer();
-		developer.setId(1L); // Dodano ID dla lepszego testu
+		developer.setId(1L);
 		developer.setName("Test");
 
 		when(developerService.createDeveloper(anyLong(), any()))
@@ -137,7 +135,7 @@ class DeveloperControllerTest {
 						.param("pokerTableId", "999")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(new Developer())))
-				.andExpect(status().isBadRequest()); // Spodziewamy się 400
+				.andExpect(status().isBadRequest());
 
 		// Verify
 		verify(developerService).createDeveloper(eq(999L), any(Developer.class));
@@ -152,7 +150,7 @@ class DeveloperControllerTest {
 		// Act & Assert
 		mockMvc.perform(get("/developers/1/has-voted"))
 				.andExpect(status().isOk())
-				.andExpect(content().string("true")); // content().string("true") dla boolean
+				.andExpect(content().string("true"));
 
 		// Verify
 		verify(developerService).hasVoted(1L);
@@ -167,7 +165,7 @@ class DeveloperControllerTest {
 		// Act & Assert
 		mockMvc.perform(get("/developers/1/has-voted"))
 				.andExpect(status().isOk())
-				.andExpect(content().string("false")); // content().string("false") dla boolean
+				.andExpect(content().string("false"));
 
 		// Verify
 		verify(developerService).hasVoted(1L);
@@ -181,7 +179,7 @@ class DeveloperControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(get("/developers/999/has-voted"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+				.andExpect(status().isNotFound());
 
 		// Verify
 		verify(developerService).hasVoted(999L);
@@ -223,7 +221,6 @@ class DeveloperControllerTest {
 		verify(developerService).getDeveloper(999L);
 	}
 
-	// Testy dla /developers/poker-table/{tableId}
 	@Test
 	void getDevelopersForTable_ValidTable_Returns200() throws Exception {
 		// Arrange
@@ -233,7 +230,7 @@ class DeveloperControllerTest {
 		Developer dev2 = new Developer();
 		dev2.setId(2L);
 		dev2.setName("Dev Two");
-		Set<Developer> developers = Set.of(dev1, dev2); // Użyto Set.of dla niemodyfikowalnej kolekcji
+		Set<Developer> developers = Set.of(dev1, dev2);
 
 		when(developerService.getDevelopersForPokerTable(anyLong()))
 				.thenReturn(developers);
@@ -243,7 +240,7 @@ class DeveloperControllerTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$").isArray())
 				.andExpect(jsonPath("$.length()").value(2))
-				.andExpect(jsonPath("$[0].id").exists()) // Sprawdzenie istnienia pól
+				.andExpect(jsonPath("$[0].id").exists())
 				.andExpect(jsonPath("$[0].name").exists());
 
 		// Verify
@@ -258,17 +255,15 @@ class DeveloperControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(get("/developers/poker-table/999"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+				.andExpect(status().isNotFound());
 
 		// Verify
 		verify(developerService).getDevelopersForPokerTable(999L);
 	}
 
-	// Testy dla zaktualizowanego /developers/join
 	@Test
 	void joinTable_newUser_createsDeveloper_Returns200() throws Exception {
 		// Arrange
-		// Mockujemy odpowiedź serwisu dla nowej sygnatury joinTable
 		Developer newDev = new Developer("session123", "Test");
 		newDev.setId(1L);
 		PokerTable table = new PokerTable();
@@ -283,18 +278,17 @@ class DeveloperControllerTest {
 				"table", Map.of(
 						"id", table.getId(),
 						"name", table.getName(),
-						"createdAt", table.getCreatedAt() // LocalDateTime może wymagać serializacji/deserializacji
+						"createdAt", table.getCreatedAt()
 				)
 		);
 
-		// Używamy any() dla HttpSession
 		when(developerService.joinTable(anyString(), anyLong(), any(HttpSession.class)))
 				.thenReturn(serviceResponse);
 
 		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
-						.param("tableId", "10")) // Dodano parametr tableId
+						.param("tableId", "10"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.developer.id").value(1L))
 				.andExpect(jsonPath("$.developer.name").value("Test"))
@@ -302,14 +296,12 @@ class DeveloperControllerTest {
 				.andExpect(jsonPath("$.table.id").value(10L))
 				.andExpect(jsonPath("$.table.name").value("New Session"));
 
-		// Verify że metoda serwisu została wywołana z prawidłowymi argumentami
 		verify(developerService).joinTable(eq("Test"), eq(10L), any(HttpSession.class));
 	}
 
 	@Test
 	void joinTable_existingUser_returnsExistingDeveloper_Returns200() throws Exception {
 		// Arrange
-		// Mockujemy odpowiedź serwisu dla istniejącego developera
 		Developer existingDev = new Developer("existingSession", "ExistingDev");
 		existingDev.setId(5L);
 		PokerTable table = new PokerTable();
@@ -334,8 +326,8 @@ class DeveloperControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(post("/developers/join")
-						.param("name", "ExistingDev") // Można przekazać to samo imię lub inne, serwis powinien użyć sesji
-						.param("tableId", "20")) // Dodano parametr tableId
+						.param("name", "ExistingDev")
+						.param("tableId", "20"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.developer.id").value(5L))
 				.andExpect(jsonPath("$.developer.name").value("ExistingDev"))
@@ -356,8 +348,8 @@ class DeveloperControllerTest {
 		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
-						.param("tableId", "999")) // Tabela nie istnieje
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+						.param("tableId", "999"))
+				.andExpect(status().isNotFound());
 
 		// Verify
 		verify(developerService).joinTable(eq("Test"), eq(999L), any(HttpSession.class));
@@ -373,8 +365,8 @@ class DeveloperControllerTest {
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
 						.param("tableId", "1"))
-				.andExpect(status().isInternalServerError()) // Spodziewamy się 500
-				.andExpect(jsonPath("$.message").exists()); // Sprawdzenie, czy zwracana jest wiadomość błędu z GlobalExceptionHandler
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.message").exists());
 	}
 
 }

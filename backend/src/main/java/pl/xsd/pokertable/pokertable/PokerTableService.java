@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.developer.Developer;
 import pl.xsd.pokertable.exception.NotEveryoneVotedException;
 import pl.xsd.pokertable.exception.NotFoundException;
+import pl.xsd.pokertable.userstory.UserStory;
 
 import java.util.Set;
 
@@ -51,5 +52,34 @@ public class PokerTableService {
 	public PokerTable getTableById(Long tableId) {
 		return pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + tableId));
+	}
+
+	@Transactional
+	public byte[] exportUserStoriesToCsv(Long tableId) {
+		PokerTable pokerTable = getTableById(tableId);
+
+		Set<UserStory> userStories = pokerTable.getUserStories();
+
+		StringBuilder csvContent = new StringBuilder();
+		csvContent.append("Summary,Description,Issue Type,Story point estimate\n");
+
+		for (UserStory story : userStories) {
+			csvContent.append("\"").append(escapeCsv(story.getTitle())).append("\"").append(",");
+			csvContent.append("\"").append(escapeCsv(story.getDescription())).append("\"").append(",");
+			csvContent.append("\"Story\",");
+			if (story.getEstimatedPoints() != null) {
+				csvContent.append(story.getEstimatedPoints());
+			}
+			csvContent.append("\n");
+		}
+
+		return csvContent.toString().getBytes();
+	}
+
+	private String escapeCsv(String field) {
+		if (field == null) {
+			return "";
+		}
+		return field.replace("\"", "\"\"");
 	}
 }

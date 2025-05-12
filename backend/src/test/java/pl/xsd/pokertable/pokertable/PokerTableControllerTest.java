@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import pl.xsd.pokertable.developer.DeveloperService; // DeveloperService jest dependency kontrolera
+import pl.xsd.pokertable.developer.DeveloperService;
 import pl.xsd.pokertable.exception.NotFoundException;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -21,10 +21,10 @@ class PokerTableControllerTest {
 	@Autowired
 	private MockMvc mockMvc;
 
-	@MockitoBean // Używamy MockBean
+	@MockitoBean
 	private PokerTableService pokerTableService;
 
-	@MockitoBean // DeveloperService jest dependency, musi być zamockowany
+	@MockitoBean
 	private DeveloperService developerService;
 
 	@Test
@@ -32,7 +32,7 @@ class PokerTableControllerTest {
 		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
-		table.setName("New Session"); // Dodano imię
+		table.setName("New Session");
 
 		when(pokerTableService.createPokerTable(anyString()))
 				.thenReturn(table);
@@ -41,25 +41,21 @@ class PokerTableControllerTest {
 		mockMvc.perform(post("/tables"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.id").value(1L))
-				.andExpect(jsonPath("$.name").value("New Session")); // Sprawdzenie imienia
+				.andExpect(jsonPath("$.name").value("New Session"));
 
 		// Verify
-		// Domyślne imię w kontrolerze to "Blank", ale w teście serwisu "Default Table"
-		// Upewnij się, że test odpowiada temu, co przekazujesz w kontrolerze
-		verify(pokerTableService).createPokerTable("Blank"); // Kontroler przekazuje "Blank"
+		verify(pokerTableService).createPokerTable("Blank");
 	}
 
 	@Test
 	void createTable_ActiveTableExists_Returns400() throws Exception {
 		// Arrange
-		// Serwis wciąż rzuca IllegalStateException jeśli active table exists (choć to może być niekonsekwentne z nową logiką wielu stołów)
-		// Testujemy obsługę tego wyjątku przez kontroler
 		Mockito.doThrow(new IllegalStateException("Active table exists"))
 				.when(pokerTableService).createPokerTable(anyString());
 
 		// Act & Assert
 		mockMvc.perform(post("/tables"))
-				.andExpect(status().isBadRequest()); // Kontroler łapie IllegalStateException i zwraca 400
+				.andExpect(status().isBadRequest());
 
 		// Verify
 		verify(pokerTableService).createPokerTable("Blank");
@@ -67,7 +63,6 @@ class PokerTableControllerTest {
 
 	@Test
 	void closeTable_Success_Returns204() throws Exception {
-		// Arrange - usunięto when(), bo domyślnie void metody nic nie rzucają
 		// Act & Assert
 		mockMvc.perform(patch("/tables/1/close"))
 				.andExpect(status().isNoContent());
@@ -84,7 +79,7 @@ class PokerTableControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(patch("/tables/1/close"))
-				.andExpect(status().isBadRequest()); // Spodziewamy się 400
+				.andExpect(status().isBadRequest());
 
 		// Verify
 		verify(pokerTableService).closePokerTable(1L);
@@ -98,7 +93,7 @@ class PokerTableControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(patch("/tables/999/close"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+				.andExpect(status().isNotFound());
 
 		// Verify
 		verify(pokerTableService).closePokerTable(999L);
@@ -124,27 +119,24 @@ class PokerTableControllerTest {
 		verify(pokerTableService).getActiveTable();
 	}
 
-	// Test dla przypadku, gdy getActiveTable tworzy nową tabelę (bo żadna aktywna nie istnieje)
 	@Test
 	void getActiveTable_notExists_createsNewAndReturns() throws Exception {
 		// Arrange
-		// Mockujemy zachowanie serwisu, gdy nie znajdzie aktywnej, ale ją utworzy
-		PokerTable newTable = new PokerTable(); // Ta nowa tabela może jeszcze nie mieć ID z bazy w tym punkcie
-		newTable.setName("Default Table"); // Imię ustawione przez serwis w orElseGet
+		PokerTable newTable = new PokerTable();
+		newTable.setName("Default Table");
 
 		when(pokerTableService.getActiveTable()).thenReturn(newTable);
 
 		// Act & Assert
 		mockMvc.perform(get("/tables/active"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.id").doesNotExist()) // ID może nie być ustawione przed zapisem/zwróceniem
-				.andExpect(jsonPath("$.name").value("Default Table")); // Ale imię powinno być ustawione
+				.andExpect(jsonPath("$.id").doesNotExist())
+				.andExpect(jsonPath("$.name").value("Default Table"));
 
 		// Verify
 		verify(pokerTableService).getActiveTable();
 	}
 
-	// --- Nowe testy dla GET /tables/{id} ---
 	@Test
 	void getTableById_exists_returns200() throws Exception {
 		// Arrange
@@ -174,7 +166,7 @@ class PokerTableControllerTest {
 
 		// Act & Assert
 		mockMvc.perform(get("/tables/{id}", tableId))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+				.andExpect(status().isNotFound());
 
 		// Verify
 		verify(pokerTableService).getTableById(tableId);
