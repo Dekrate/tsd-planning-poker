@@ -167,4 +167,9 @@ public class DeveloperService {
 
 		return participationRepository.findByDeveloperId(developerId);
 	}
+
+	public Developer getDeveloperByEmail(String email) {
+		return developerRepository.findByEmail(email)
+				.orElseThrow(() -> new NotFoundException("Developer not found with email: " + email));
+	}
 }

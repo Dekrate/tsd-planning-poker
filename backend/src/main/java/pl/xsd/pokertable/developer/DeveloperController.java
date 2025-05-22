@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.xsd.pokertable.participation.Participation;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,15 +60,16 @@ public class DeveloperController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<Map<String, String>> loginDeveloper(@RequestBody Map<String, String> loginRequest) {
+	public ResponseEntity<LoginResponseDto> loginDeveloper(@RequestBody Map<String, String> loginRequest) {
 		String email = loginRequest.get("email");
 		String password = loginRequest.get("password");
 		if (email == null || email.isEmpty() || password == null || password.isEmpty()) {
-			return ResponseEntity.badRequest().body(Collections.singletonMap("message", "Email and password cannot be empty."));
+			throw new IllegalArgumentException("Email and password must be provided");
 		}
 
 		String jwt = developerService.loginDeveloper(email, password);
-		return ResponseEntity.ok(Collections.singletonMap("jwt", jwt));
+		Developer developer = developerService.getDeveloperByEmail(email);
+		return ResponseEntity.ok(new LoginResponseDto(jwt, developer));
 	}
 
 	@GetMapping("/{developerId}/history")

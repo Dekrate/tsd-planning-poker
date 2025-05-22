@@ -518,6 +518,7 @@ class DeveloperServiceTest {
 		verify(pokerTableRepository).findByIsClosedFalse();
 		verifyNoInteractions(pokerTableService);
 	}
+
 	@Test
 	void registerDeveloper_success() {
 		String name = "New Dev";
@@ -558,6 +559,7 @@ class DeveloperServiceTest {
 		verifyNoInteractions(bCryptPasswordEncoder);
 		verify(developerRepository, never()).save(any(Developer.class));
 	}
+
 	@Test
 	void loginDeveloper_success() {
 		String email = "test@example.com";
@@ -591,6 +593,7 @@ class DeveloperServiceTest {
 		verifyNoInteractions(userDetailsService);
 		verifyNoInteractions(jwtUtil);
 	}
+
 	@Test
 	void getDeveloperParticipationHistory_developerExists_returnsHistory() {
 		Long developerId = 1L;
@@ -617,5 +620,24 @@ class DeveloperServiceTest {
 		assertThat(exception.getMessage()).isEqualTo("Developer not found with ID: " + developerId);
 		verify(developerRepository).findById(developerId);
 		verifyNoInteractions(participationRepository);
+	}
+
+	@Test
+	void getDeveloperByEmail_developerExists_returnsDeveloper() {
+		String email = "abc@def.pl";
+		when(developerRepository.findByEmail(email)).thenReturn(Optional.of(testDeveloper));
+		Developer result = developerService.getDeveloperByEmail(email);
+		assertThat(result).isEqualTo(testDeveloper);
+		verify(developerRepository).findByEmail(email);
+	}
+
+	@Test
+	void getDeveloperByEmail_developerNotFound_throwsException() {
+		String email = "def@ghi.pl";
+		when(developerRepository.findByEmail(email)).thenReturn(Optional.empty());
+		NotFoundException exception = assertThrows(NotFoundException.class,
+				() -> developerService.getDeveloperByEmail(email));
+		assertThat(exception.getMessage()).isEqualTo("Developer not found with email: " + email);
+		verify(developerRepository).findByEmail(email);
 	}
 }
