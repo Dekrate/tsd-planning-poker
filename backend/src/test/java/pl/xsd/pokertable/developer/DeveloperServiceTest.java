@@ -1,16 +1,28 @@
 package pl.xsd.pokertable.developer;
 
 import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import pl.xsd.pokertable.config.JwtUtil;
 import pl.xsd.pokertable.exception.NotFoundException;
+import pl.xsd.pokertable.participation.Participation;
+import pl.xsd.pokertable.participation.ParticipationRepository;
 import pl.xsd.pokertable.pokertable.PokerTable;
 import pl.xsd.pokertable.pokertable.PokerTableRepository;
-import pl.xsd.pokertable.pokertable.PokerTableService; // Potrzebne, bo getActiveTable go używa
+import pl.xsd.pokertable.pokertable.PokerTableService;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +46,40 @@ class DeveloperServiceTest {
 	@Mock
 	private PokerTableService pokerTableService;
 
+	@Mock
+	private BCryptPasswordEncoder bCryptPasswordEncoder;
+
+	@Mock
+	private ParticipationRepository participationRepository;
+
+	@Mock
+	private AuthenticationManager authenticationManager;
+
+	@Mock
+	private UserDetailsService userDetailsService;
+
+	@Mock
+	private JwtUtil jwtUtil;
+
 	@InjectMocks
 	private DeveloperService developerService;
+
+	private Developer testDeveloper;
+	private PokerTable testPokerTable;
+
+	@BeforeEach
+	void setUp() {
+		reset(developerRepository, pokerTableRepository, pokerTableService, bCryptPasswordEncoder,
+				participationRepository, authenticationManager, userDetailsService, jwtUtil);
+
+		testDeveloper = new Developer("testSessionId", "Test Developer");
+		testDeveloper.setId(1L);
+		testDeveloper.setEmail("test@example.com");
+		testDeveloper.setPassword("hashedPassword");
+
+		testPokerTable = new PokerTable(10L, "Test Table");
+		testPokerTable.setCreatedAt(LocalDateTime.now());
+	}
 
 
 	@Test
@@ -61,40 +105,32 @@ class DeveloperServiceTest {
 
 	@Test
 	void vote_developerNotInTable_throwsException() {
-		// Arrange
 		PokerTable devTable = new PokerTable();
 		devTable.setId(10L);
+		devTable.setCreatedAt(LocalDateTime.now());
 		Developer developer = new Developer();
 		developer.setPokerTable(devTable);
 
 		PokerTable targetTable = new PokerTable();
 		targetTable.setId(20L);
+		targetTable.setCreatedAt(LocalDateTime.now());
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(targetTable));
-
-		// Act & Assert
 		assertThrows(IllegalArgumentException.class, () -> developerService.vote(1L, 20L, 5));
-
-		// Verify
 		verify(developerRepository).findById(1L);
 		verify(pokerTableRepository).findById(20L);
 	}
 
 	@Test
 	void vote_nullVote_throwsException() {
-		// Arrange
 		Long developerId = 1L;
 		Long tableId = 1L;
 		Integer nullVote = null;
-
-		// Act & Then
 		IllegalArgumentException exception = assertThrows(
 				IllegalArgumentException.class,
 				() -> developerService.vote(developerId, tableId, nullVote)
 		);
-
-		// Assert
 		assertThat(exception.getMessage()).isEqualTo("Vote cannot be null");
 
 		verifyNoInteractions(developerRepository);
@@ -103,18 +139,13 @@ class DeveloperServiceTest {
 
 	@Test
 	void vote_voteLessThanOne_throwsException() {
-		// Arrange
 		Long developerId = 1L;
 		Long tableId = 1L;
 		Integer invalidVote = 0;
-
-		// Act & Then
 		IllegalArgumentException exception = assertThrows(
 				IllegalArgumentException.class,
 				() -> developerService.vote(developerId, tableId, invalidVote)
 		);
-
-		// Assert
 		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13");
 
 		verifyNoInteractions(developerRepository);
@@ -123,21 +154,14 @@ class DeveloperServiceTest {
 
 	@Test
 	void vote_voteGreaterThanThirteen_throwsException() {
-		// Arrange
 		Long developerId = 1L;
 		Long tableId = 1L;
 		Integer invalidVote = 14;
-
-		// Act & Then
 		IllegalArgumentException exception = assertThrows(
 				IllegalArgumentException.class,
 				() -> developerService.vote(developerId, tableId, invalidVote)
 		);
-
-		// Assert
 		assertThat(exception.getMessage()).isEqualTo("Vote must be between 1 and 13");
-
-		// Verify
 		verifyNoInteractions(developerRepository);
 		verifyNoInteractions(pokerTableRepository);
 	}
@@ -145,23 +169,17 @@ class DeveloperServiceTest {
 
 	@Test
 	void vote_validParameters_updatesVote() {
-		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
+		table.setCreatedAt(LocalDateTime.now());
 		Developer developer = new Developer();
 		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
-
-		// Act
 		developerService.vote(1L, 1L, 5);
-
-		// Assert
 		assertThat(developer.getVote()).isEqualTo(5);
-
-		// Verify
 		verify(developerRepository).findById(1L);
 		verify(pokerTableRepository).findById(1L);
 		verify(developerRepository).save(developer);
@@ -169,40 +187,32 @@ class DeveloperServiceTest {
 
 	@Test
 	void vote_validMinVote_accepts() {
-		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
+		table.setCreatedAt(LocalDateTime.now());
 		Developer developer = new Developer();
 		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
-
-		// Act
 		developerService.vote(1L, 1L, 1);
-
-		// Assert
 		assertThat(developer.getVote()).isEqualTo(1);
 		verify(developerRepository).save(developer);
 	}
 
 	@Test
 	void vote_validMaxVote_accepts() {
-		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
+		table.setCreatedAt(LocalDateTime.now());
 		Developer developer = new Developer();
 		developer.setPokerTable(table);
 
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
-
-		// Act
 		developerService.vote(1L, 1L, 13);
-
-		// Assert
 		assertThat(developer.getVote()).isEqualTo(13);
 		verify(developerRepository).save(developer);
 	}
@@ -210,59 +220,42 @@ class DeveloperServiceTest {
 
 	@Test
 	void getDeveloper_exists_returnsDeveloper() {
-		// Arrange
 		Developer developer = new Developer();
 		developer.setId(1L);
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.of(developer));
-
-		// Act
 		Developer result = developerService.getDeveloper(1L);
-
-		// Assert
 		assertThat(result).isEqualTo(developer);
-
-		// Verify
 		verify(developerRepository).findById(1L);
 	}
 
 	@Test
 	void getDeveloper_notFound_throwsException() {
-		// Arrange
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.getDeveloper(999L));
-
-		// Verify
 		verify(developerRepository).findById(999L);
 	}
 
 
 	@Test
 	void hasVoted_developerExists_returnsCorrectStatus() {
-		// Arrange
 		Developer devWithVoteNonNull = new Developer();
 		devWithVoteNonNull.setId(1L);
-		devWithVoteNonNull.setVote(5); // Non-null vote
+		devWithVoteNonNull.setVote(5);
 
 		Developer devWithVoteZero = new Developer();
 		devWithVoteZero.setId(2L);
-		devWithVoteZero.setVote(0); // Vote is 0
+		devWithVoteZero.setVote(0);
 
 		Developer devWithoutVote = new Developer();
 		devWithoutVote.setId(3L);
-		devWithoutVote.setVote(null); // Vote is null
+		devWithoutVote.setVote(null);
 
 		when(developerRepository.findById(1L)).thenReturn(Optional.of(devWithVoteNonNull));
 		when(developerRepository.findById(2L)).thenReturn(Optional.of(devWithVoteZero));
 		when(developerRepository.findById(3L)).thenReturn(Optional.of(devWithoutVote));
-
-		// Act & Assert
 		assertThat(developerService.hasVoted(1L)).isFalse();
 		assertThat(developerService.hasVoted(2L)).isFalse();
 		assertThat(developerService.hasVoted(3L)).isTrue();
-
-		// Verify
 		verify(developerRepository).findById(1L);
 		verify(developerRepository).findById(2L);
 		verify(developerRepository).findById(3L);
@@ -270,82 +263,55 @@ class DeveloperServiceTest {
 
 	@Test
 	void hasVoted_developerNotFound_throwsException() {
-		// Arrange
 		when(developerRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.hasVoted(999L));
-
-		// Verify
 		verify(developerRepository).findById(999L);
 	}
 
 
 	@Test
 	void getDevelopersForPokerTable_validTable_returnsDevelopers() {
-		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
+		table.setCreatedAt(LocalDateTime.now());
 		Set<Developer> developers = Set.of(new Developer(), new Developer());
 		table.setDevelopers(developers);
 
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
-
-		// Act
 		Set<Developer> result = developerService.getDevelopersForPokerTable(1L);
-
-		// Assert
 		assertThat(result).isEqualTo(developers);
-
-		// Verify
 		verify(pokerTableRepository).findById(1L);
 	}
 
 	@Test
 	void getDevelopersForPokerTable_tableNotFound_throwsException() {
-		// Arrange
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.getDevelopersForPokerTable(999L));
-
-		// Verify
 		verify(pokerTableRepository).findById(999L);
 	}
 
 
 	@Test
 	void createDeveloper_validTable_savesDeveloper() {
-		// Arrange
 		PokerTable table = new PokerTable();
 		table.setId(1L);
+		table.setCreatedAt(LocalDateTime.now());
 		Developer developer = new Developer();
 
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
 		when(developerRepository.save(any(Developer.class))).thenReturn(developer);
-
-		// Act
 		Developer result = developerService.createDeveloper(1L, developer);
-
-		// Assert
 		assertThat(result).isEqualTo(developer);
 		assertThat(result.getPokerTable()).isEqualTo(table);
 		assertThat(result.getVote()).isNull();
-
-		// Verify
 		verify(pokerTableRepository).findById(1L);
 		verify(developerRepository).save(developer);
 	}
 
 	@Test
 	void createDeveloper_invalidTable_throwsException() {
-		// Arrange
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(IllegalArgumentException.class, () -> developerService.createDeveloper(1L, new Developer()));
-
-		// Verify
 		verify(pokerTableRepository).findById(1L);
 		verify(developerRepository, never()).save(any());
 	}
@@ -353,7 +319,6 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_newDeveloper_createsNewDeveloperAndAssociatesWithTable() {
-		// Arrange
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("newSession123");
 		Long targetTableId = 10L;
@@ -361,6 +326,7 @@ class DeveloperServiceTest {
 		PokerTable table = new PokerTable();
 		table.setId(targetTableId);
 		table.setName("New Table");
+		table.setCreatedAt(LocalDateTime.now());
 
 		Developer newDev = new Developer("newSession123", "NewDev");
 		newDev.setId(1L);
@@ -374,11 +340,7 @@ class DeveloperServiceTest {
 			devToSave.setVote(null);
 			return devToSave;
 		});
-
-		// Act
 		Map<String, Object> result = developerService.joinTable("NewDev", targetTableId, session);
-
-		// Assert
 		assertThat(result).isNotNull();
 		assertThat(result).containsKey("developer");
 		assertThat(result).containsKey("table");
@@ -391,8 +353,6 @@ class DeveloperServiceTest {
 		Map<String, Object> tableMap = (Map<String, Object>) result.get("table");
 		assertThat(tableMap).containsKey("id").containsValue(targetTableId);
 		assertThat(tableMap).containsKey("name").containsValue("New Table");
-
-		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(targetTableId);
 		verify(developerRepository).findBySessionId("newSession123");
@@ -402,7 +362,6 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_existingDeveloperOnSameTable_returnsExistingDeveloper() {
-		// Arrange
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("existingSession456");
 		Long targetTableId = 30L;
@@ -410,28 +369,22 @@ class DeveloperServiceTest {
 		PokerTable table = new PokerTable();
 		table.setId(targetTableId);
 		table.setName("Existing Table");
+		table.setCreatedAt(LocalDateTime.now());
 
 		Developer existingDev = new Developer("existingSession456", "ExistingDev");
 		existingDev.setId(5L);
 		existingDev.setPokerTable(table);
 		existingDev.setVote(5);
 
-		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(table));
-		when(developerRepository.findBySessionId(eq("existingSession456"))).thenReturn(Optional.of(existingDev));
-
-		// Act
+		when(pokerTableRepository.findById(targetTableId)).thenReturn(Optional.of(table));
+		when(developerRepository.findBySessionId("existingSession456")).thenReturn(Optional.of(existingDev));
 		Map<String, Object> result = developerService.joinTable("ExistingDev", targetTableId, session);
-
-		// Assert
 		assertThat(result).isNotNull();
 		Map<String, Object> developerMap = (Map<String, Object>) result.get("developer");
 		assertThat(developerMap).containsKey("id").containsValue(5L);
 		assertThat(developerMap).containsKey("name").containsValue("ExistingDev");
 		assertThat(existingDev.getPokerTable().getId()).isEqualTo(targetTableId);
 		assertThat(existingDev.getVote()).isEqualTo(5);
-
-
-		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(targetTableId);
 		verify(developerRepository).findBySessionId("existingSession456");
@@ -441,7 +394,6 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_existingDeveloperOnDifferentTable_updatesDeveloperTableAndResetsVote() {
-		// Arrange
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("sessionToMove");
 		Long oldTableId = 100L;
@@ -450,10 +402,12 @@ class DeveloperServiceTest {
 		PokerTable oldTable = new PokerTable();
 		oldTable.setId(oldTableId);
 		oldTable.setName("Old Table");
+		oldTable.setCreatedAt(LocalDateTime.now());
 
 		PokerTable newTable = new PokerTable();
 		newTable.setId(newTableId);
 		newTable.setName("New Table");
+		newTable.setCreatedAt(LocalDateTime.now());
 
 
 		Developer existingDev = new Developer("sessionToMove", "MovingDev");
@@ -462,14 +416,10 @@ class DeveloperServiceTest {
 		existingDev.setVote(8);
 
 
-		when(pokerTableRepository.findById(eq(newTableId))).thenReturn(Optional.of(newTable));
-		when(developerRepository.findBySessionId(eq("sessionToMove"))).thenReturn(Optional.of(existingDev));
+		when(pokerTableRepository.findById(newTableId)).thenReturn(Optional.of(newTable));
+		when(developerRepository.findBySessionId("sessionToMove")).thenReturn(Optional.of(existingDev));
 		when(developerRepository.save(any(Developer.class))).thenReturn(existingDev);
-
-		// Act
 		Map<String, Object> result = developerService.joinTable("MovingDev", newTableId, session);
-
-		// Assert
 		assertThat(result).isNotNull();
 		Map<String, Object> developerMap = (Map<String, Object>) result.get("developer");
 		assertThat(developerMap).containsKey("id").containsValue(10L);
@@ -477,8 +427,6 @@ class DeveloperServiceTest {
 
 		assertThat(existingDev.getPokerTable().getId()).isEqualTo(newTableId);
 		assertThat(existingDev.getVote()).isNull();
-
-		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(newTableId);
 		verify(developerRepository).findBySessionId("sessionToMove");
@@ -489,17 +437,12 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_tableNotFound_throwsException() {
-		// Arrange
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("sessionError");
 		Long nonExistentTableId = 999L;
 
 		when(pokerTableRepository.findById(nonExistentTableId)).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(NotFoundException.class, () -> developerService.joinTable("Test", nonExistentTableId, session));
-
-		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(nonExistentTableId);
 		verify(developerRepository, never()).findBySessionId(anyString());
@@ -509,7 +452,6 @@ class DeveloperServiceTest {
 
 	@Test
 	void joinTable_existingDeveloperWithNullTable_updatesDeveloperTableAndResetsVote() {
-		// Arrange
 		HttpSession session = mock(HttpSession.class);
 		when(session.getId()).thenReturn("sessionWithNullTable");
 		Long targetTableId = 50L;
@@ -517,21 +459,17 @@ class DeveloperServiceTest {
 		PokerTable targetTable = new PokerTable();
 		targetTable.setId(targetTableId);
 		targetTable.setName("Target Table");
+		targetTable.setCreatedAt(LocalDateTime.now());
 
 		Developer existingDevWithNullTable = new Developer("sessionWithNullTable", "DevWithNullTable");
 		existingDevWithNullTable.setId(15L);
 		existingDevWithNullTable.setVote(7);
 
 
-		when(pokerTableRepository.findById(eq(targetTableId))).thenReturn(Optional.of(targetTable));
-		when(developerRepository.findBySessionId(eq("sessionWithNullTable"))).thenReturn(Optional.of(existingDevWithNullTable));
+		when(pokerTableRepository.findById(targetTableId)).thenReturn(Optional.of(targetTable));
+		when(developerRepository.findBySessionId("sessionWithNullTable")).thenReturn(Optional.of(existingDevWithNullTable));
 		when(developerRepository.save(any(Developer.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-
-		// Act
 		Map<String, Object> result = developerService.joinTable("DevWithNullTable", targetTableId, session);
-
-		// Assert
 		assertThat(result).isNotNull();
 		Map<String, Object> developerMap = (Map<String, Object>) result.get("developer");
 		assertThat(developerMap).containsKey("id").containsValue(15L);
@@ -539,8 +477,6 @@ class DeveloperServiceTest {
 
 		assertThat(existingDevWithNullTable.getPokerTable().getId()).isEqualTo(targetTableId);
 		assertThat(existingDevWithNullTable.getVote()).isNull();
-
-		// Verify
 		verify(session).getId();
 		verify(pokerTableRepository).findById(targetTableId);
 		verify(developerRepository).findBySessionId("sessionWithNullTable");
@@ -550,24 +486,18 @@ class DeveloperServiceTest {
 
 	@Test
 	void getActiveTable_noActiveTable_createsNew() {
-		// Arrange
 		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.empty());
 
 		PokerTable newTable = new PokerTable();
 		newTable.setId(1L);
 		newTable.setName("Blank");
+		newTable.setCreatedAt(LocalDateTime.now());
 
 		when(pokerTableService.createPokerTable("Blank")).thenReturn(newTable);
-
-		// Act
 		PokerTable result = developerService.getActiveTable();
-
-		// Assert
 		assertThat(result).isEqualTo(newTable);
 		assertThat(result.getId()).isEqualTo(1L);
 		assertThat(result.getName()).isEqualTo("Blank");
-
-		// Verify
 		verify(pokerTableRepository).findByIsClosedFalse();
 		verify(pokerTableService).createPokerTable("Blank");
 		verifyNoMoreInteractions(pokerTableService);
@@ -577,22 +507,115 @@ class DeveloperServiceTest {
 
 	@Test
 	void getActiveTable_activeTableExists_returnsExisting() {
-		// Arrange
 		PokerTable existingTable = new PokerTable();
 		existingTable.setId(10L);
 		existingTable.setName("Existing Active");
+		existingTable.setCreatedAt(LocalDateTime.now());
 		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.of(existingTable));
-
-		// Act
 		PokerTable result = developerService.getActiveTable();
-
-		// Assert
 		assertThat(result).isEqualTo(existingTable);
 		assertThat(result.getId()).isEqualTo(10L);
-
-		// Verify
 		verify(pokerTableRepository).findByIsClosedFalse();
 		verifyNoInteractions(pokerTableService);
 	}
+	@Test
+	void registerDeveloper_success() {
+		String name = "New Dev";
+		String email = "newdev@example.com";
+		String password = "rawPassword";
+		String encodedPassword = "encodedPassword";
 
+		when(developerRepository.findByEmail(email)).thenReturn(Optional.empty());
+		when(bCryptPasswordEncoder.encode(password)).thenReturn(encodedPassword);
+		when(developerRepository.save(any(Developer.class))).thenAnswer(invocation -> {
+			Developer dev = invocation.getArgument(0);
+			dev.setId(2L);
+			return dev;
+		});
+		Developer registeredDeveloper = developerService.registerDeveloper(name, email, password);
+		assertThat(registeredDeveloper).isNotNull();
+		assertThat(registeredDeveloper.getName()).isEqualTo(name);
+		assertThat(registeredDeveloper.getEmail()).isEqualTo(email);
+		assertThat(registeredDeveloper.getPassword()).isEqualTo(encodedPassword);
+		assertThat(registeredDeveloper.getId()).isEqualTo(2L);
+		verify(developerRepository).findByEmail(email);
+		verify(bCryptPasswordEncoder).encode(password);
+		verify(developerRepository).save(any(Developer.class));
+	}
+
+	@Test
+	void registerDeveloper_emailAlreadyExists_throwsException() {
+		String name = "Existing Dev";
+		String email = "test@example.com";
+		String password = "rawPassword";
+
+		when(developerRepository.findByEmail(email)).thenReturn(Optional.of(testDeveloper));
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> developerService.registerDeveloper(name, email, password));
+
+		assertThat(exception.getMessage()).isEqualTo("Developer with this email already exists.");
+		verify(developerRepository).findByEmail(email);
+		verifyNoInteractions(bCryptPasswordEncoder);
+		verify(developerRepository, never()).save(any(Developer.class));
+	}
+	@Test
+	void loginDeveloper_success() {
+		String email = "test@example.com";
+		String password = "rawPassword";
+		String jwtToken = "mockedJwtToken";
+
+		UserDetails userDetails = User.withUsername(email).password("encodedPassword").roles("DEVELOPER").build();
+
+		when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(null);
+		when(userDetailsService.loadUserByUsername(email)).thenReturn(userDetails);
+		when(jwtUtil.generateToken(userDetails)).thenReturn(jwtToken);
+		String resultToken = developerService.loginDeveloper(email, password);
+		assertThat(resultToken).isEqualTo(jwtToken);
+		verify(authenticationManager).authenticate(new UsernamePasswordAuthenticationToken(email, password));
+		verify(userDetailsService).loadUserByUsername(email);
+		verify(jwtUtil).generateToken(userDetails);
+	}
+
+	@Test
+	void loginDeveloper_invalidCredentials_throwsException() {
+		String email = "test@example.com";
+		String password = "wrongPassword";
+
+		when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+				.thenThrow(new BadCredentialsException("Invalid credentials"));
+		IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+				() -> developerService.loginDeveloper(email, password));
+
+		assertThat(exception.getMessage()).isEqualTo("Invalid email or password.");
+		verify(authenticationManager).authenticate(new UsernamePasswordAuthenticationToken(email, password));
+		verifyNoInteractions(userDetailsService);
+		verifyNoInteractions(jwtUtil);
+	}
+	@Test
+	void getDeveloperParticipationHistory_developerExists_returnsHistory() {
+		Long developerId = 1L;
+		Set<Participation> history = new HashSet<>();
+		history.add(new Participation(testDeveloper, testPokerTable, 5));
+		history.add(new Participation(testDeveloper, new PokerTable(11L, "Another Table", LocalDateTime.now(), false), 8));
+
+		when(developerRepository.findById(developerId)).thenReturn(Optional.of(testDeveloper));
+		when(participationRepository.findByDeveloperId(developerId)).thenReturn(history);
+		Set<Participation> result = developerService.getDeveloperParticipationHistory(developerId);
+		assertThat(result).isEqualTo(history);
+		assertThat(result).hasSize(2);
+		verify(developerRepository).findById(developerId);
+		verify(participationRepository).findByDeveloperId(developerId);
+	}
+
+	@Test
+	void getDeveloperParticipationHistory_developerNotFound_throwsException() {
+		Long developerId = 999L;
+		when(developerRepository.findById(developerId)).thenReturn(Optional.empty());
+		NotFoundException exception = assertThrows(NotFoundException.class,
+				() -> developerService.getDeveloperParticipationHistory(developerId));
+
+		assertThat(exception.getMessage()).isEqualTo("Developer not found with ID: " + developerId);
+		verify(developerRepository).findById(developerId);
+		verifyNoInteractions(participationRepository);
+	}
 }

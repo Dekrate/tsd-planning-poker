@@ -34,7 +34,6 @@ public class UserStoryService {
 	}
 
 	public Set<UserStory> getUserStoriesForTable(Long pokerTableId) {
-		// This implicitly checks if the poker table exists via the repository method
 		return userStoryRepository.findByPokerTableId(pokerTableId);
 	}
 

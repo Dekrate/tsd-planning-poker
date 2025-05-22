@@ -23,7 +23,6 @@ public class GlobalExceptionHandler {
 	}
 
 
-
 	@ExceptionHandler(ConstraintViolationException.class)
 	public ResponseEntity<Map<String, Object>> handleConstraintViolationException(ConstraintViolationException ex) {
 		Map<String, Object> response = new HashMap<>();
@@ -49,6 +48,13 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+		Map<String, Object> response = new HashMap<>();
+		response.put("message", ex.getMessage());
+		return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+	}
+
+	@ExceptionHandler(NotEveryoneVotedException.class)
+	public ResponseEntity<Map<String, Object>> handleNotEveryoneVotedException(NotEveryoneVotedException ex) {
 		Map<String, Object> response = new HashMap<>();
 		response.put("message", ex.getMessage());
 		return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);

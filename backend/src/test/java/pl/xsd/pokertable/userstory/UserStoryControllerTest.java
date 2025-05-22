@@ -4,10 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import pl.xsd.pokertable.config.JwtAuthenticationEntryPoint;
+import pl.xsd.pokertable.config.JwtRequestFilter;
+import pl.xsd.pokertable.config.JwtUtil;
 import pl.xsd.pokertable.exception.NotFoundException;
 import pl.xsd.pokertable.pokertable.PokerTable;
 
@@ -16,12 +25,16 @@ import java.util.Set;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(UserStoryController.class)
+@WebMvcTest(controllers = UserStoryController.class,
+		excludeAutoConfiguration = {SecurityAutoConfiguration.class},
+		excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtRequestFilter.class))
+@AutoConfigureMockMvc(addFilters = false)
 class UserStoryControllerTest {
 
 	@Autowired
@@ -32,6 +45,15 @@ class UserStoryControllerTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@MockitoBean
+	private UserDetailsService userDetailsService;
+
+	@MockitoBean
+	private JwtUtil jwtUtil;
+
+	@MockitoBean
+	private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
 	private PokerTable pokerTable;
 	private UserStory userStory;
@@ -52,98 +74,92 @@ class UserStoryControllerTest {
 
 	@Test
 	void createUserStory_shouldReturnCreatedStory_whenSuccessful() throws Exception {
-		// Arrange
 		Long tableId = pokerTable.getId();
 		UserStory userStoryToCreate = new UserStory("New Story", "Details");
-		userStoryToCreate.setEstimatedPoints(3); // Include estimated points
+		userStoryToCreate.setEstimatedPoints(3);
 
 		UserStory createdStory = new UserStory("New Story", "Details");
 		createdStory.setId(11L);
 		createdStory.setEstimatedPoints(3);
+		createdStory.setPokerTable(pokerTable);
 
 
 		when(userStoryService.createUserStory(eq(tableId), any(UserStory.class))).thenReturn(createdStory);
-
-		// Act & Assert
 		mockMvc.perform(post("/user-stories")
 						.param("pokerTableId", tableId.toString())
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(userStoryToCreate)))
+						.content(objectMapper.writeValueAsString(userStoryToCreate))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isCreated())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.id", is(11)))
 				.andExpect(jsonPath("$.title", is("New Story")))
 				.andExpect(jsonPath("$.description", is("Details")))
-				.andExpect(jsonPath("$.estimatedPoints", is(3))); // Assert estimated points
+				.andExpect(jsonPath("$.estimatedPoints", is(3)));
 
 		verify(userStoryService).createUserStory(eq(tableId), any(UserStory.class));
 	}
 
 	@Test
 	void createUserStory_shouldReturnNotFound_whenPokerTableDoesNotExist() throws Exception {
-		// Arrange
 		Long nonExistentTableId = 99L;
 		UserStory userStoryToCreate = new UserStory("New Story", "Details");
 		userStoryToCreate.setEstimatedPoints(3);
 
 		when(userStoryService.createUserStory(eq(nonExistentTableId), any(UserStory.class)))
 				.thenThrow(new NotFoundException("Poker table not found with ID: " + nonExistentTableId));
-
-		// Act & Assert
 		mockMvc.perform(post("/user-stories")
 						.param("pokerTableId", nonExistentTableId.toString())
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(userStoryToCreate)))
+						.content(objectMapper.writeValueAsString(userStoryToCreate))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound())
-				.andExpect(jsonPath("$.message", is("Poker table not found with ID: " + nonExistentTableId))); // Verify error response format
+				.andExpect(jsonPath("$.message", is("Poker table not found with ID: " + nonExistentTableId)));
 		verify(userStoryService).createUserStory(eq(nonExistentTableId), any(UserStory.class));
 	}
 
 	@Test
 	void getUserStoryById_shouldReturnUserStory_whenStoryExists() throws Exception {
-		// Arrange
 		Long storyId = userStory.getId();
 		when(userStoryService.getUserStoryById(storyId)).thenReturn(userStory);
-
-		// Act & Assert
-		mockMvc.perform(get("/user-stories/{storyId}", storyId))
+		mockMvc.perform(get("/user-stories/{storyId}", storyId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.id", is(storyId.intValue())))
 				.andExpect(jsonPath("$.title", is("As a user, I want...")))
 				.andExpect(jsonPath("$.description", is("...")))
-				.andExpect(jsonPath("$.estimatedPoints", is(5))); // Assert estimated points
+				.andExpect(jsonPath("$.estimatedPoints", is(5)));
 
 		verify(userStoryService).getUserStoryById(storyId);
 	}
 
 	@Test
 	void getUserStoryById_shouldReturnNotFound_whenStoryDoesNotExist() throws Exception {
-		// Arrange
 		Long nonExistentStoryId = 99L;
 		when(userStoryService.getUserStoryById(nonExistentStoryId))
 				.thenThrow(new NotFoundException("User story not found with ID: " + nonExistentStoryId));
-
-		// Act & Assert
-		mockMvc.perform(get("/user-stories/{storyId}", nonExistentStoryId))
+		mockMvc.perform(get("/user-stories/{storyId}", nonExistentStoryId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
 		verify(userStoryService).getUserStoryById(nonExistentStoryId);
 	}
 
+
 	@Test
 	void getUserStoriesForTable_shouldReturnSetOfUserStories_whenTableHasStories() throws Exception {
-		// Arrange
 		Long tableId = pokerTable.getId();
 		Set<UserStory> stories = new HashSet<>();
 		stories.add(userStory);
-		stories.add(new UserStory(11L, "Another Story", "More Details", 8, pokerTable)); // Use all-args constructor (requires adding one if not present)
+		stories.add(new UserStory(11L, "Another Story", "More Details", 8, pokerTable));
 
 		when(userStoryService.getUserStoriesForTable(tableId)).thenReturn(stories);
-
-		// Act & Assert
-		mockMvc.perform(get("/user-stories/table/{tableId}", tableId))
+		mockMvc.perform(get("/user-stories/table/{tableId}", tableId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$", hasSize(2)))
@@ -156,13 +172,11 @@ class UserStoryControllerTest {
 
 	@Test
 	void getUserStoriesForTable_shouldReturnEmptySet_whenTableHasNoStories() throws Exception {
-		// Arrange
 		Long tableId = pokerTable.getId();
 		Set<UserStory> stories = new HashSet<>();
 		when(userStoryService.getUserStoriesForTable(tableId)).thenReturn(stories);
-
-		// Act & Assert
-		mockMvc.perform(get("/user-stories/table/{tableId}", tableId))
+		mockMvc.perform(get("/user-stories/table/{tableId}", tableId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$", hasSize(0)));
@@ -170,9 +184,9 @@ class UserStoryControllerTest {
 		verify(userStoryService).getUserStoriesForTable(tableId);
 	}
 
+
 	@Test
 	void updateUserStory_shouldReturnUpdatedUserStory_whenSuccessful() throws Exception {
-		// Arrange
 		Long storyId = userStory.getId();
 		UserStory updatedDetails = new UserStory();
 		updatedDetails.setTitle("Title Updated");
@@ -187,11 +201,11 @@ class UserStoryControllerTest {
 		updatedStory.setPokerTable(pokerTable);
 
 		when(userStoryService.updateUserStory(eq(storyId), any(UserStory.class))).thenReturn(updatedStory);
-
-		// Act & Assert
 		mockMvc.perform(put("/user-stories/{storyId}", storyId)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(updatedDetails)))
+						.content(objectMapper.writeValueAsString(updatedDetails))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.id", is(storyId.intValue())))
@@ -204,18 +218,17 @@ class UserStoryControllerTest {
 
 	@Test
 	void updateUserStory_shouldReturnNotFound_whenStoryDoesNotExist() throws Exception {
-		// Arrange
 		Long nonExistentStoryId = 99L;
 		UserStory updatedDetails = new UserStory();
 		updatedDetails.setTitle("Title Updated");
 
 		when(userStoryService.updateUserStory(eq(nonExistentStoryId), any(UserStory.class)))
 				.thenThrow(new NotFoundException("User story not found with ID: " + nonExistentStoryId));
-
-		// Act & Assert
 		mockMvc.perform(put("/user-stories/{storyId}", nonExistentStoryId)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(updatedDetails)))
+						.content(objectMapper.writeValueAsString(updatedDetails))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
@@ -225,12 +238,11 @@ class UserStoryControllerTest {
 
 	@Test
 	void deleteUserStory_shouldReturnNoContent_whenSuccessful() throws Exception {
-		// Arrange
 		Long storyId = userStory.getId();
 		doNothing().when(userStoryService).deleteUserStory(storyId);
-
-		// Act & Assert
-		mockMvc.perform(delete("/user-stories/{storyId}", storyId))
+		mockMvc.perform(delete("/user-stories/{storyId}", storyId)
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNoContent());
 
 		verify(userStoryService).deleteUserStory(storyId);
@@ -238,17 +250,15 @@ class UserStoryControllerTest {
 
 	@Test
 	void deleteUserStory_shouldReturnNotFound_whenStoryDoesNotExist() throws Exception {
-		// Arrange
 		Long nonExistentStoryId = 99L;
 		doThrow(new NotFoundException("User story not found with ID: " + nonExistentStoryId))
 				.when(userStoryService).deleteUserStory(nonExistentStoryId);
-
-		// Act & Assert
-		mockMvc.perform(delete("/user-stories/{storyId}", nonExistentStoryId))
+		mockMvc.perform(delete("/user-stories/{storyId}", nonExistentStoryId)
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.message", is("User story not found with ID: " + nonExistentStoryId)));
 
 		verify(userStoryService).deleteUserStory(nonExistentStoryId);
 	}
-
 }

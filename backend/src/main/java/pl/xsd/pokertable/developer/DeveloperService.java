@@ -1,9 +1,17 @@
 package pl.xsd.pokertable.developer;
 
 import jakarta.servlet.http.HttpSession;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.xsd.pokertable.config.JwtUtil;
 import pl.xsd.pokertable.exception.NotFoundException;
+import pl.xsd.pokertable.participation.Participation;
+import pl.xsd.pokertable.participation.ParticipationRepository;
 import pl.xsd.pokertable.pokertable.PokerTable;
 import pl.xsd.pokertable.pokertable.PokerTableRepository;
 import pl.xsd.pokertable.pokertable.PokerTableService;
@@ -18,11 +26,21 @@ public class DeveloperService {
 	private final DeveloperRepository developerRepository;
 	private final PokerTableRepository pokerTableRepository;
 	private final PokerTableService pokerTableService;
+	private final BCryptPasswordEncoder bCryptPasswordEncoder;
+	private final ParticipationRepository participationRepository;
+	private final AuthenticationManager authenticationManager;
+	private final UserDetailsService userDetailsService;
+	private final JwtUtil jwtUtil;
 
-	public DeveloperService(DeveloperRepository developerRepository, PokerTableRepository pokerTableRepository, PokerTableService pokerTableService) {
+	public DeveloperService(DeveloperRepository developerRepository, PokerTableRepository pokerTableRepository, PokerTableService pokerTableService, BCryptPasswordEncoder bCryptPasswordEncoder, ParticipationRepository participationRepository, AuthenticationManager authenticationManager, UserDetailsService userDetailsService, JwtUtil jwtUtil) {
 		this.developerRepository = developerRepository;
 		this.pokerTableRepository = pokerTableRepository;
 		this.pokerTableService = pokerTableService;
+		this.bCryptPasswordEncoder = bCryptPasswordEncoder;
+		this.participationRepository = participationRepository;
+		this.authenticationManager = authenticationManager;
+		this.userDetailsService = userDetailsService;
+		this.jwtUtil = jwtUtil;
 	}
 
 	public PokerTable getActiveTable() {
@@ -46,7 +64,7 @@ public class DeveloperService {
 		PokerTable pokerTable = pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found"));
 
-		if (!developer.getPokerTable().getId().equals(pokerTable.getId())) { // Compare IDs
+		if (!developer.getPokerTable().getId().equals(pokerTable.getId())) {
 			throw new IllegalArgumentException("Developer does not belong to this poker table.");
 		}
 
@@ -117,5 +135,36 @@ public class DeveloperService {
 						"createdAt", table.getCreatedAt()
 				)
 		);
+	}
+
+	@Transactional
+	public Developer registerDeveloper(String name, String email, String password) {
+		if (developerRepository.findByEmail(email).isPresent()) {
+			throw new IllegalArgumentException("Developer with this email already exists.");
+		}
+
+		String encodedPassword = bCryptPasswordEncoder.encode(password);
+		Developer newDeveloper = new Developer(name, email, encodedPassword);
+		return developerRepository.save(newDeveloper);
+	}
+
+	@Transactional
+	public String loginDeveloper(String email, String password) {
+		try {
+			authenticationManager.authenticate(
+					new UsernamePasswordAuthenticationToken(email, password)
+			);
+		} catch (Exception e) {
+			throw new IllegalArgumentException("Invalid email or password.", e);
+		}
+		final UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+		return jwtUtil.generateToken(userDetails);
+	}
+
+	public Set<Participation> getDeveloperParticipationHistory(Long developerId) {
+		developerRepository.findById(developerId)
+				.orElseThrow(() -> new NotFoundException("Developer not found with ID: " + developerId));
+
+		return participationRepository.findByDeveloperId(developerId);
 	}
 }

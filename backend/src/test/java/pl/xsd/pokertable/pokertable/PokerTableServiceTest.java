@@ -1,13 +1,17 @@
 package pl.xsd.pokertable.pokertable;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import pl.xsd.pokertable.developer.Developer;
+import pl.xsd.pokertable.developer.DeveloperRepository;
 import pl.xsd.pokertable.exception.NotEveryoneVotedException;
 import pl.xsd.pokertable.exception.NotFoundException;
+import pl.xsd.pokertable.participation.Participation;
+import pl.xsd.pokertable.participation.ParticipationRepository;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -25,11 +29,43 @@ class PokerTableServiceTest {
 	@Mock
 	private PokerTableRepository pokerTableRepository;
 
+	@Mock
+	private DeveloperRepository developerRepository;
+
+	@Mock
+	private ParticipationRepository participationRepository;
+
 	@InjectMocks
 	private PokerTableService pokerTableService;
 
+	private PokerTable testPokerTable;
+	private Developer testDeveloper1;
+	private Developer testDeveloper2;
+
+	@BeforeEach
+	void setUp() {
+		reset(pokerTableRepository, developerRepository, participationRepository);
+
+		testPokerTable = new PokerTable(1L, "Test Table");
+		testDeveloper1 = new Developer("session1", "Dev1");
+		testDeveloper1.setId(101L);
+		testDeveloper1.setPokerTable(testPokerTable);
+		testDeveloper1.setVote(5);
+
+		testDeveloper2 = new Developer("session2", "Dev2");
+		testDeveloper2.setId(102L);
+		testDeveloper2.setPokerTable(testPokerTable);
+		testDeveloper2.setVote(8);
+
+		Set<Developer> developers = new HashSet<>();
+		developers.add(testDeveloper1);
+		developers.add(testDeveloper2);
+		testPokerTable.setDevelopers(developers);
+	}
+
+
 	@Test
-	void createPokerTable_noActiveTable_createsNew() {
+	void createPokerTable_createsNew() {
 		when(pokerTableRepository.save(any(PokerTable.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		PokerTable result = pokerTableService.createPokerTable("Test");
@@ -44,112 +80,65 @@ class PokerTableServiceTest {
 
 
 	@Test
-	void closePokerTable_allVotedOrZero_closesTable() {
-		// Arrange
-		PokerTable table = new PokerTable();
-		table.setId(1L);
-		table.setIsClosed(false);
-
-		Developer dev1 = new Developer();
-		dev1.setId(101L);
-		dev1.setVote(5);
-
-		Developer dev2 = new Developer();
-		dev2.setId(102L);
-		dev2.setVote(0);
-
-		Set<Developer> developers = new HashSet<>(Set.of(dev1, dev2));
-		table.setDevelopers(developers);
-
-		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.of(table));
+	void closePokerTable_allVoted_closesTableAndResetsVotes() {
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
 		when(pokerTableRepository.save(any(PokerTable.class))).thenAnswer(inv -> inv.getArgument(0));
-
-		// Act
-		pokerTableService.closePokerTable(1L);
-
-		// Assert
-		assertThat(table.getIsClosed()).isTrue();
-		verify(pokerTableRepository).save(table);
-		verify(pokerTableRepository).findById(1L);
+		when(developerRepository.save(any(Developer.class))).thenAnswer(inv -> inv.getArgument(0));
+		when(participationRepository.save(any(Participation.class))).thenAnswer(inv -> inv.getArgument(0));
+		pokerTableService.closePokerTable(testPokerTable.getId());
+		assertThat(testPokerTable.getIsClosed()).isTrue();
+		assertThat(testDeveloper1.getVote()).isNull();
+		assertThat(testDeveloper2.getVote()).isNull();
+		verify(pokerTableRepository).findById(testPokerTable.getId());
+		verify(pokerTableRepository).save(testPokerTable);
+		verify(participationRepository, times(2)).save(any(Participation.class));
+		verify(developerRepository, times(2)).save(any(Developer.class));
 	}
 
 	@Test
 	void closePokerTable_notAllVotedNull_throwsException() {
-		// Arrange
-		PokerTable table = new PokerTable();
-		table.setId(1L);
-		table.setIsClosed(false);
-
-		Developer dev1 = new Developer();
-		dev1.setId(101L);
-		dev1.setVote(5); // hasVoted() = false
-
-		Developer dev2 = new Developer();
-		dev2.setId(102L);
-		dev2.setVote(null); // hasVoted() = true
-
-		Set<Developer> developers = new HashSet<>(Set.of(dev1, dev2));
-		table.setDevelopers(developers);
-
-		when(pokerTableRepository.findById(1L)).thenReturn(Optional.of(table));
-
-
+		testDeveloper2.setVote(null);
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
 		NotEveryoneVotedException exception = assertThrows(NotEveryoneVotedException.class, () -> {
-			pokerTableService.closePokerTable(1L);
+			pokerTableService.closePokerTable(testPokerTable.getId());
 		});
 
 		assertThat(exception.getMessage()).isEqualTo("Not all developers have submitted a vote yet, or there are no developers at the table.");
-
-		verify(pokerTableRepository).findById(1L);
-
+		verify(pokerTableRepository).findById(testPokerTable.getId());
 		verify(pokerTableRepository, never()).save(any());
-
-		assertThat(table.getIsClosed()).isFalse();
+		verifyNoInteractions(participationRepository);
+		verifyNoInteractions(developerRepository);
+		assertThat(testPokerTable.getIsClosed()).isFalse();
 	}
 
 	@Test
 	void closePokerTable_emptyTable_throwsException() {
-		// Arrange
-		PokerTable table = new PokerTable();
-		table.setId(1L);
-		table.setIsClosed(false);
-		table.setDevelopers(new HashSet<>());
-
-		when(pokerTableRepository.findById(1L)).thenReturn(Optional.of(table));
-
-
-		NotEveryoneVotedException exception = assertThrows(NotEveryoneVotedException.class, () -> {
-			pokerTableService.closePokerTable(1L);
-		});
+		testPokerTable.setDevelopers(new HashSet<>());
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
+		NotEveryoneVotedException exception = assertThrows(NotEveryoneVotedException.class, () -> pokerTableService.closePokerTable(testPokerTable.getId()));
 
 		assertThat(exception.getMessage()).isEqualTo("Not all developers have submitted a vote yet, or there are no developers at the table.");
-
-
-		verify(pokerTableRepository).findById(1L);
-
+		verify(pokerTableRepository).findById(testPokerTable.getId());
 		verify(pokerTableRepository, never()).save(any());
-
-		assertThat(table.getIsClosed()).isFalse();
+		verifyNoInteractions(participationRepository);
+		verifyNoInteractions(developerRepository);
+		assertThat(testPokerTable.getIsClosed()).isFalse();
 	}
 
 
 	@Test
 	void closePokerTable_tableNotFound_throwsException() {
-		// Arrange
 		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
-
-		// Act & Assert
 		assertThrows(NotFoundException.class, () -> pokerTableService.closePokerTable(1L));
-
-		// Verify
 		verify(pokerTableRepository).findById(1L);
 		verify(pokerTableRepository, never()).save(any());
+		verifyNoInteractions(participationRepository);
+		verifyNoInteractions(developerRepository);
 	}
 
 
 	@Test
 	void getActiveTable_noActiveTable_createsNew() {
-		// Arrange
 		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.empty());
 		PokerTable newTable = new PokerTable();
 		newTable.setId(1L);
@@ -159,92 +148,50 @@ class PokerTableServiceTest {
 			tableToSave.setId(1L);
 			return tableToSave;
 		});
-
-
-		// Act
 		PokerTable result = pokerTableService.getActiveTable();
-
-		// Assert
-		assertThat(result).isNotNull();
-
-		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.empty(), Optional.empty());
-
-		when(pokerTableRepository.save(any(PokerTable.class))).thenAnswer(inv -> {
-			PokerTable tableToSave = inv.getArgument(0);
-			tableToSave.setId(1L);
-			return tableToSave;
-		});
-
-
-		// Act
-		result = pokerTableService.getActiveTable();
-
-		// Assert
 		assertThat(result).isNotNull();
 		assertThat(result.getId()).isEqualTo(1L);
 		assertThat(result.getName()).isEqualTo("Default Table");
 		assertThat(result.getIsClosed()).isFalse();
-
-		// Verify
-		verify(pokerTableRepository, times(2)).findByIsClosedFalse();
-		verify(pokerTableRepository, times(2)).save(any(PokerTable.class));
+		verify(pokerTableRepository).findByIsClosedFalse();
+		verify(pokerTableRepository).save(any(PokerTable.class));
 	}
 
 	@Test
 	void getActiveTable_activeTableExists_returnsExisting() {
-		// Arrange
 		PokerTable existingTable = new PokerTable();
 		existingTable.setId(10L);
 		existingTable.setName("Existing Active");
 		existingTable.setIsClosed(false);
 
 		when(pokerTableRepository.findByIsClosedFalse()).thenReturn(Optional.of(existingTable));
-
-		// Act
 		PokerTable result = pokerTableService.getActiveTable();
-
-		// Assert
 		assertThat(result).isEqualTo(existingTable);
 		assertThat(result.getId()).isEqualTo(10L);
-
-		// Verify
 		verify(pokerTableRepository).findByIsClosedFalse();
 		verifyNoMoreInteractions(pokerTableRepository);
 	}
 
 	@Test
 	void getTableById_exists_returnsTable() {
-		// Arrange
 		Long tableId = 123L;
 		PokerTable table = new PokerTable();
 		table.setId(tableId);
 		table.setName("Specific Table");
 
 		when(pokerTableRepository.findById(tableId)).thenReturn(Optional.of(table));
-
-		// Act
 		PokerTable result = pokerTableService.getTableById(tableId);
-
-		// Assert
 		assertThat(result).isEqualTo(table);
 		assertThat(result.getId()).isEqualTo(tableId);
-
-		// Verify
 		verify(pokerTableRepository).findById(tableId);
 	}
 
 	@Test
 	void getTableById_notFound_throwsException() {
-		// Arrange
 		Long tableId = 999L;
 
-		when(pokerTableRepository.findById(eq(tableId))).thenReturn(Optional.empty());
-
-		// Act & Assert
+		when(pokerTableRepository.findById(tableId)).thenReturn(Optional.empty());
 		assertThrows(NotFoundException.class, () -> pokerTableService.getTableById(tableId));
-
-		// Verify
 		verify(pokerTableRepository).findById(tableId);
 	}
-
 }

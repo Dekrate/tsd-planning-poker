@@ -5,8 +5,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pl.xsd.pokertable.developer.DeveloperService;
-import pl.xsd.pokertable.exception.NotFoundException;
 
 @RestController
 @RequestMapping("/tables")
@@ -14,9 +12,6 @@ import pl.xsd.pokertable.exception.NotFoundException;
 public class PokerTableController {
 
 	private final PokerTableService pokerTableService;
-	private final DeveloperService developerService;
-
-	// Endpoint do tworzenia stołu pokerowego
 	@PostMapping
 	public ResponseEntity<PokerTable> createPokerTable() {
 		try {
@@ -29,12 +24,9 @@ public class PokerTableController {
 
 	@PatchMapping("/{id}/close")
 	public ResponseEntity<Void> closePokerTable(@PathVariable Long id) {
-		try {
-			pokerTableService.closePokerTable(id);
-			return ResponseEntity.noContent().build();
-		} catch (IllegalStateException e) {
-			return ResponseEntity.status(400).build();
-		}
+		pokerTableService.closePokerTable(id);
+		return ResponseEntity.noContent().build();
+
 	}
 
 	@GetMapping("/active")

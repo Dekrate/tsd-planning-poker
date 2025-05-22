@@ -3,25 +3,37 @@ package pl.xsd.pokertable.developer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import pl.xsd.pokertable.config.JwtAuthenticationEntryPoint;
+import pl.xsd.pokertable.config.JwtRequestFilter;
+import pl.xsd.pokertable.config.JwtUtil;
 import pl.xsd.pokertable.exception.NotFoundException;
+import pl.xsd.pokertable.participation.Participation;
 import pl.xsd.pokertable.pokertable.PokerTable;
 
-
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(DeveloperController.class)
+@WebMvcTest(controllers = DeveloperController.class,
+		excludeAutoConfiguration = {SecurityAutoConfiguration.class},
+		excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtRequestFilter.class))
+@AutoConfigureMockMvc(addFilters = false)
 class DeveloperControllerTest {
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -31,12 +43,22 @@ class DeveloperControllerTest {
 	@MockitoBean
 	private DeveloperService developerService;
 
+	@MockitoBean
+	private UserDetailsService userDetailsService;
+
+	@MockitoBean
+	private JwtUtil jwtUtil;
+
+	@MockitoBean
+	private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
 	@Test
 	void vote_ValidRequest_Returns204() throws Exception {
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
-						.param("vote", "5"))
+						.param("vote", "5")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNoContent());
 
 		verify(developerService).vote(1L, 1L, 5);
@@ -44,58 +66,52 @@ class DeveloperControllerTest {
 
 	@Test
 	void vote_InvalidVoteValue_Returns400() throws Exception {
-		// Arrange
-		Mockito.doThrow(new IllegalArgumentException("Invalid vote"))
+		doThrow(new IllegalArgumentException("Invalid vote"))
 				.when(developerService).vote(anyLong(), anyLong(), anyInt());
-
-		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
-						.param("vote", "20"))
+						.param("vote", "20")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isBadRequest());
-
-		// Verify
 		verify(developerService).vote(1L, 1L, 20);
 	}
 
 	@Test
 	void vote_DeveloperNotFound_Returns404() throws Exception {
-		// Arrange
-		Mockito.doThrow(new NotFoundException("Developer not found"))
+		doThrow(new NotFoundException("Developer not found"))
 				.when(developerService).vote(anyLong(), anyLong(), anyInt());
-
-		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "1")
-						.param("vote", "5"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
+						.param("vote", "5")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
+				.andExpect(status().isNotFound());
 		verify(developerService).vote(1L, 1L, 5);
 	}
 
 	@Test
 	void vote_PokerTableNotFound_Returns404() throws Exception {
-		// Arrange
-		Mockito.doThrow(new NotFoundException("Poker table not found"))
+		doThrow(new NotFoundException("Poker table not found"))
 				.when(developerService).vote(anyLong(), anyLong(), anyInt());
-
-		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "999")
-						.param("vote", "5"))
+						.param("vote", "5")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound());
 		verify(developerService).vote(1L, 999L, 5);
 	}
 
 	@Test
 	void vote_DeveloperDoesNotBelongToTable_Returns400() throws Exception {
-		// Arrange
-		Mockito.doThrow(new IllegalArgumentException("Developer does not belong to this poker table."))
+		doThrow(new IllegalArgumentException("Developer does not belong to this poker table."))
 				.when(developerService).vote(anyLong(), anyLong(), anyInt());
-
-		// Act & Assert
 		mockMvc.perform(patch("/developers/1/vote")
 						.param("tableId", "2")
-						.param("vote", "5"))
+						.param("vote", "5")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isBadRequest());
 		verify(developerService).vote(1L, 2L, 5);
 	}
@@ -103,127 +119,99 @@ class DeveloperControllerTest {
 
 	@Test
 	void createDeveloper_ValidRequest_Returns200() throws Exception {
-		// Arrange
 		Developer developer = new Developer();
 		developer.setId(1L);
 		developer.setName("Test");
 
 		when(developerService.createDeveloper(anyLong(), any()))
 				.thenReturn(developer);
-
-		// Act & Assert
 		mockMvc.perform(post("/developers")
 						.param("pokerTableId", "1")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(developer)))
+						.content(objectMapper.writeValueAsString(developer))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(1L))
 				.andExpect(jsonPath("$.name").value("Test"));
-
-		// Verify
 		verify(developerService).createDeveloper(eq(1L), any(Developer.class));
 	}
 
 	@Test
 	void createDeveloper_InvalidTable_Returns400() throws Exception {
-		// Arrange
-		Mockito.doThrow(new IllegalArgumentException("Invalid table"))
+		doThrow(new IllegalArgumentException("Invalid table"))
 				.when(developerService).createDeveloper(anyLong(), any());
-
-		// Act & Assert
 		mockMvc.perform(post("/developers")
 						.param("pokerTableId", "999")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(new Developer())))
+						.content(objectMapper.writeValueAsString(new Developer()))
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isBadRequest());
-
-		// Verify
 		verify(developerService).createDeveloper(eq(999L), any(Developer.class));
 	}
 
+
 	@Test
 	void hasVoted_True_ReturnsTrue() throws Exception {
-		// Arrange
 		when(developerService.hasVoted(anyLong()))
 				.thenReturn(true);
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/1/has-voted"))
+		mockMvc.perform(get("/developers/1/has-voted")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().string("true"));
-
-		// Verify
 		verify(developerService).hasVoted(1L);
 	}
 
 	@Test
 	void hasVoted_False_ReturnsFalse() throws Exception {
-		// Arrange
 		when(developerService.hasVoted(anyLong()))
 				.thenReturn(false);
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/1/has-voted"))
+		mockMvc.perform(get("/developers/1/has-voted")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(content().string("false"));
-
-		// Verify
 		verify(developerService).hasVoted(1L);
 	}
 
 	@Test
 	void hasVoted_DeveloperNotFound_Returns404() throws Exception {
-		// Arrange
 		when(developerService.hasVoted(anyLong()))
 				.thenThrow(new NotFoundException("Developer not found"));
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/999/has-voted"))
+		mockMvc.perform(get("/developers/999/has-voted")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound());
-
-		// Verify
 		verify(developerService).hasVoted(999L);
 	}
-
-
-	// Testy dla /developers/{developerId}
 	@Test
 	void getDeveloper_Exists_Returns200() throws Exception {
-		// Arrange
 		Developer developer = new Developer();
 		developer.setId(1L);
 		developer.setName("Existing Dev");
 
 		when(developerService.getDeveloper(anyLong()))
 				.thenReturn(developer);
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/1"))
+		mockMvc.perform(get("/developers/1")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(1L))
 				.andExpect(jsonPath("$.name").value("Existing Dev"));
-
-		// Verify
 		verify(developerService).getDeveloper(1L);
 	}
 
 	@Test
 	void getDeveloper_NotFound_Returns404() throws Exception {
-		// Arrange
 		when(developerService.getDeveloper(anyLong()))
 				.thenThrow(new NotFoundException("Developer not found"));
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/999"))
-				.andExpect(status().isNotFound()); // Spodziewamy się 404
-
-		// Verify
+		mockMvc.perform(get("/developers/999")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
+				.andExpect(status().isNotFound());
 		verify(developerService).getDeveloper(999L);
 	}
 
+
 	@Test
 	void getDevelopersForTable_ValidTable_Returns200() throws Exception {
-		// Arrange
 		Developer dev1 = new Developer();
 		dev1.setId(1L);
 		dev1.setName("Dev One");
@@ -235,40 +223,36 @@ class DeveloperControllerTest {
 		when(developerService.getDevelopersForPokerTable(anyLong()))
 				.thenReturn(developers);
 
-		// Act & Assert
-		mockMvc.perform(get("/developers/poker-table/1"))
+		mockMvc.perform(get("/developers/poker-table/1")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$").isArray())
 				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].id").exists())
 				.andExpect(jsonPath("$[0].name").exists());
 
-		// Verify
 		verify(developerService).getDevelopersForPokerTable(1L);
 	}
 
 	@Test
 	void getDevelopersForTable_InvalidTable_Returns404() throws Exception {
-		// Arrange
 		when(developerService.getDevelopersForPokerTable(anyLong()))
 				.thenThrow(new NotFoundException("Invalid table"));
-
-		// Act & Assert
-		mockMvc.perform(get("/developers/poker-table/999"))
+		mockMvc.perform(get("/developers/poker-table/999")
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound());
-
-		// Verify
 		verify(developerService).getDevelopersForPokerTable(999L);
 	}
 
+
 	@Test
 	void joinTable_newUser_createsDeveloper_Returns200() throws Exception {
-		// Arrange
 		Developer newDev = new Developer("session123", "Test");
 		newDev.setId(1L);
 		PokerTable table = new PokerTable();
 		table.setId(10L);
 		table.setName("New Session");
+		table.setCreatedAt(java.time.LocalDateTime.now());
 		Map<String, Object> serviceResponse = Map.of(
 				"developer", Map.of(
 						"id", newDev.getId(),
@@ -284,11 +268,11 @@ class DeveloperControllerTest {
 
 		when(developerService.joinTable(anyString(), anyLong(), any(HttpSession.class)))
 				.thenReturn(serviceResponse);
-
-		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
-						.param("tableId", "10"))
+						.param("tableId", "10")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.developer.id").value(1L))
 				.andExpect(jsonPath("$.developer.name").value("Test"))
@@ -301,12 +285,12 @@ class DeveloperControllerTest {
 
 	@Test
 	void joinTable_existingUser_returnsExistingDeveloper_Returns200() throws Exception {
-		// Arrange
 		Developer existingDev = new Developer("existingSession", "ExistingDev");
 		existingDev.setId(5L);
 		PokerTable table = new PokerTable();
 		table.setId(20L);
 		table.setName("Existing Session");
+		table.setCreatedAt(java.time.LocalDateTime.now());
 
 		Map<String, Object> serviceResponse = Map.of(
 				"developer", Map.of(
@@ -323,50 +307,199 @@ class DeveloperControllerTest {
 
 		when(developerService.joinTable(anyString(), anyLong(), any(HttpSession.class)))
 				.thenReturn(serviceResponse);
-
-		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "ExistingDev")
-						.param("tableId", "20"))
+						.param("tableId", "20")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.developer.id").value(5L))
 				.andExpect(jsonPath("$.developer.name").value("ExistingDev"))
 				.andExpect(jsonPath("$.developer.sessionId").value("existingSession"))
 				.andExpect(jsonPath("$.table.id").value(20L));
-
-		// Verify
 		verify(developerService).joinTable(eq("ExistingDev"), eq(20L), any(HttpSession.class));
 	}
 
 
 	@Test
 	void joinTable_TableNotFound_Returns404() throws Exception {
-		// Arrange
-		Mockito.doThrow(new NotFoundException("Poker table not found"))
+		doThrow(new NotFoundException("Poker table not found"))
 				.when(developerService).joinTable(anyString(), anyLong(), any(HttpSession.class));
-
-		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
-						.param("tableId", "999"))
+						.param("tableId", "999")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isNotFound());
-
-		// Verify
 		verify(developerService).joinTable(eq("Test"), eq(999L), any(HttpSession.class));
 	}
 
 	@Test
 	void joinTable_GenericError_Returns500() throws Exception {
-		// Arrange
-		Mockito.doThrow(new RuntimeException("Something went wrong"))
+		doThrow(new RuntimeException("Something went wrong"))
 				.when(developerService).joinTable(anyString(), anyLong(), any(HttpSession.class));
-
-		// Act & Assert
 		mockMvc.perform(post("/developers/join")
 						.param("name", "Test")
-						.param("tableId", "1"))
+						.param("tableId", "1")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
 				.andExpect(status().isInternalServerError())
 				.andExpect(jsonPath("$.message").exists());
 	}
+	@Test
+	void registerDeveloper_ValidRequest_Returns201() throws Exception {
+		Map<String, String> registrationRequest = new HashMap<>();
+		registrationRequest.put("name", "TestUser");
+		registrationRequest.put("email", "test@example.com");
+		registrationRequest.put("password", "password123");
+		registrationRequest.put("sessionId", UUID.randomUUID().toString());
 
+		Developer newDeveloper = new Developer("TestUser", "test@example.com", "password123");
+		newDeveloper.setId(1L);
+		newDeveloper.setSessionId(UUID.randomUUID().toString());
+
+		when(developerService.registerDeveloper(anyString(), anyString(), anyString()))
+				.thenReturn(newDeveloper);
+		mockMvc.perform(post("/developers/register")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(registrationRequest))
+						.with(csrf()))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.id").value(1L))
+				.andExpect(jsonPath("$.name").value("TestUser"))
+				.andExpect(jsonPath("$.email").value("test@example.com"))
+				.andExpect(jsonPath("$.password").doesNotExist());
+		verify(developerService).registerDeveloper("TestUser", "test@example.com", "password123");
+	}
+
+	@Test
+	void registerDeveloper_InvalidData_Returns400() throws Exception {
+		Map<String, String> invalidRegistrationRequest = new HashMap<>();
+		invalidRegistrationRequest.put("name", "");
+		invalidRegistrationRequest.put("email", "invalid-email");
+		invalidRegistrationRequest.put("password", "short");
+		invalidRegistrationRequest.put("sessionId", UUID.randomUUID().toString());
+		mockMvc.perform(post("/developers/register")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(invalidRegistrationRequest))
+						.with(csrf()))
+				.andExpect(status().isBadRequest());
+		verifyNoInteractions(developerService);
+	}
+
+	@Test
+	void registerDeveloper_EmailAlreadyExists_Returns400() throws Exception {
+		Map<String, String> existingEmailRequest = new HashMap<>();
+		existingEmailRequest.put("name", "ExistingUser");
+		existingEmailRequest.put("email", "existing@example.com");
+		existingEmailRequest.put("password", "password123");
+		doThrow(new IllegalArgumentException("Developer with this email already exists."))
+				.when(developerService).registerDeveloper(anyString(), anyString(), anyString());
+		mockMvc.perform(post("/developers/register")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(existingEmailRequest))
+						.with(csrf()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Developer with this email already exists."));
+		verify(developerService).registerDeveloper("ExistingUser", "existing@example.com", "password123");
+	}
+
+	@Test
+	void loginDeveloper_ValidCredentials_ReturnsJwtToken() throws Exception {
+		Map<String, String> loginRequest = Map.of("email", "test@example.com", "password", "password123");
+		String jwtToken = "mocked.jwt.token";
+
+		when(developerService.loginDeveloper("test@example.com", "password123"))
+				.thenReturn(jwtToken);
+
+		mockMvc.perform(post("/developers/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(loginRequest))
+						.with(csrf()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.jwt").value(jwtToken));
+
+		verify(developerService).loginDeveloper("test@example.com", "password123");
+	}
+
+	@Test
+	void loginDeveloper_InvalidCredentials_Returns400() throws Exception {
+		Map<String, String> loginRequest = Map.of("email", "test@example.com", "password", "wrongpassword");
+		doThrow(new IllegalArgumentException("Invalid email or password."))
+				.when(developerService).loginDeveloper(anyString(), anyString());
+
+		mockMvc.perform(post("/developers/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(loginRequest))
+						.with(csrf()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Invalid email or password."));
+
+		verify(developerService).loginDeveloper("test@example.com", "wrongpassword");
+	}
+
+	@Test
+	void loginDeveloper_MissingCredentials_Returns400() throws Exception {
+		Map<String, String> loginRequest = Collections.singletonMap("email", "test@example.com");
+
+		mockMvc.perform(post("/developers/login")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(loginRequest))
+						.with(csrf()))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Email and password cannot be empty."));
+
+		verifyNoInteractions(developerService);
+	}
+
+	@Test
+	void getDeveloperHistory_DeveloperExists_ReturnsHistory() throws Exception {
+		Long developerId = 1L;
+		Set<Participation> history = new HashSet<>();
+		PokerTable mockTable = new PokerTable();
+		mockTable.setId(20L);
+		mockTable.setName("Mock Table");
+		mockTable.setCreatedAt(java.time.LocalDateTime.now());
+
+		Developer mockDeveloper = new Developer();
+		mockDeveloper.setId(1L);
+		mockDeveloper.setName("Test Developer");
+		mockDeveloper.setEmail("test@example.com");
+		mockDeveloper.setPassword("hashedPassword");
+
+		history.add(new Participation(mockDeveloper, mockTable, 5));
+		history.add(new Participation(mockDeveloper, new PokerTable(21L, "Another Mock Table", java.time.LocalDateTime.now(), false), 8));
+
+
+		when(developerService.getDeveloperParticipationHistory(developerId)).thenReturn(history);
+
+		mockMvc.perform(get("/developers/{developerId}/history", developerId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$").isArray())
+				.andExpect(jsonPath("$.length()").value(2));
+
+		verify(developerService).getDeveloperParticipationHistory(developerId);
+	}
+
+	@Test
+	void getDeveloperHistory_DeveloperNotFound_Returns404() throws Exception {
+		Long developerId = 999L;
+		doThrow(new NotFoundException("Developer not found with ID: " + developerId))
+				.when(developerService).getDeveloperParticipationHistory(developerId);
+
+		mockMvc.perform(get("/developers/{developerId}/history", developerId)
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
+				.andExpect(status().isNotFound());
+
+		verify(developerService).getDeveloperParticipationHistory(developerId);
+	}
+
+	@Test
+	void logout_Returns200() throws Exception {
+		mockMvc.perform(post("/developers/logout")
+						.with(csrf())
+						.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))))
+				.andExpect(status().isOk());
+	}
 }
