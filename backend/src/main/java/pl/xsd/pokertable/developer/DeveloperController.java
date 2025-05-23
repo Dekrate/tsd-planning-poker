@@ -1,12 +1,12 @@
 package pl.xsd.pokertable.developer;
 
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import pl.xsd.pokertable.participation.Participation;
 
 import java.util.Map;
 import java.util.Set;
@@ -25,9 +25,9 @@ public class DeveloperController {
 	}
 
 	@PostMapping
-	public ResponseEntity<Developer> createDeveloper(@RequestParam Long pokerTableId, @RequestBody Developer developer) {
+	public ResponseEntity<DeveloperDto> createDeveloper(@RequestParam Long pokerTableId, @RequestBody Developer developer) { // Zmieniono zwracany typ na DeveloperDto
 		Developer createdDeveloper = developerService.createDeveloper(pokerTableId, developer);
-		return ResponseEntity.ok(createdDeveloper);
+		return ResponseEntity.ok(new DeveloperDto(createdDeveloper)); // Konwersja na DTO
 	}
 
 	@GetMapping("/{developerId}/has-voted")
@@ -37,25 +37,32 @@ public class DeveloperController {
 	}
 
 	@GetMapping("/{developerId}")
-	public ResponseEntity<Developer> getDeveloper(@PathVariable Long developerId) {
-		Developer developer = developerService.getDeveloper(developerId);
+	public ResponseEntity<DeveloperDto> getDeveloper(@PathVariable Long developerId) { // Zmieniono zwracany typ na DeveloperDto
+		DeveloperDto developer = developerService.getDeveloper(developerId); // Serwis już zwraca DTO
 		return ResponseEntity.ok(developer);
 	}
 
 	@GetMapping("/poker-table/{tableId}")
-	public ResponseEntity<Set<Developer>> getAllDevelopers(@PathVariable Long tableId) {
-		Set<Developer> developers = developerService.getDevelopersForPokerTable(tableId);
+	public ResponseEntity<Set<DeveloperDto>> getAllDevelopers(@PathVariable Long tableId) { // Zmieniono zwracany typ na Set<DeveloperDto>
+		Set<DeveloperDto> developers = developerService.getDevelopersForPokerTable(tableId); // Serwis już zwraca Set<DeveloperDto>
 		return ResponseEntity.ok(developers);
 	}
 
 	@PostMapping("/join")
-	public ResponseEntity<Map<String, Object>> joinTable(@RequestParam String name, @RequestParam Long tableId, HttpSession session) {
-		return ResponseEntity.ok(developerService.joinTable(name, tableId, session));
+	public ResponseEntity<JoinResponseDto> joinTable(@RequestParam Long tableId) {
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+		if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String && authentication.getPrincipal().equals("anonymousUser"))) {
+			String email = authentication.getName();
+			return ResponseEntity.ok(developerService.joinTable(email, tableId));
+		} else {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
 	}
 
 	@PostMapping("/register")
-	public ResponseEntity<Developer> registerDeveloper(@RequestBody @Valid NewDeveloperDto developerDto) {
-		Developer registeredDeveloper = developerService.registerDeveloper(developerDto.name(), developerDto.email(), developerDto.password());
+	public ResponseEntity<DeveloperDto> registerDeveloper(@RequestBody @Valid NewDeveloperDto developerDto) { // Zmieniono zwracany typ na DeveloperDto
+		DeveloperDto registeredDeveloper = developerService.registerDeveloper(developerDto.name(), developerDto.email(), developerDto.password()); // Serwis już zwraca DTO
 		return ResponseEntity.status(HttpStatus.CREATED).body(registeredDeveloper);
 	}
 
@@ -68,18 +75,13 @@ public class DeveloperController {
 		}
 
 		String jwt = developerService.loginDeveloper(email, password);
-		Developer developer = developerService.getDeveloperByEmail(email);
-		return ResponseEntity.ok(new LoginResponseDto(jwt, developer));
+		Developer developer = developerService.getDeveloperByEmail(email); // Nadal pobieramy encję tutaj
+		return ResponseEntity.ok(new LoginResponseDto(jwt, new DeveloperDto(developer))); // Konwersja na DTO w odpowiedzi
 	}
 
-	@GetMapping("/{developerId}/history")
-	public ResponseEntity<Set<Participation>> getDeveloperHistory(@PathVariable Long developerId) {
-		Set<Participation> history = developerService.getDeveloperParticipationHistory(developerId);
-		return ResponseEntity.ok(history);
-
-	}
 	@PostMapping("/logout")
 	public ResponseEntity<Void> logout() {
+		SecurityContextHolder.clearContext();
 		return ResponseEntity.ok().build();
 	}
 }

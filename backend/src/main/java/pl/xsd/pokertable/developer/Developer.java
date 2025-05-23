@@ -8,12 +8,10 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import pl.xsd.pokertable.participation.Participation;
 import pl.xsd.pokertable.pokertable.PokerTable;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 @NoArgsConstructor
@@ -40,34 +38,43 @@ public class Developer {
 	@Column(nullable = false)
 	private String password;
 
-	@Column
-	private String sessionId;
-
 	@ManyToOne
 	@JoinColumn(name = "poker_table_id")
 	@JsonIgnore
-	private PokerTable pokerTable;
+	private PokerTable pokerTable; // Represents the CURRENT active table for the developer
 
 	@Column
 	private Integer vote;
 
-	@OneToMany(mappedBy = "developer", cascade = CascadeType.ALL, orphanRemoval = true)
-	@JsonIgnore
-	private Set<Participation> participations = new HashSet<>();
+	// NEW Many-to-Many relationship to track past tables participated in
+	@ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+	@JoinTable(
+			name = "developer_past_tables", // Name of the join table
+			joinColumns = @JoinColumn(name = "developer_id"), // Column for Developer
+			inverseJoinColumns = @JoinColumn(name = "poker_table_id") // Column for PokerTable
+	)
+	@JsonIgnore // We don't want this in JSON responses to avoid circular references
+	private Set<PokerTable> pastTables = new HashSet<>(); // Set of tables the developer has participated in
 
 	public boolean hasVoted() {
 		return vote == null;
-	}
-
-	public Developer(String sessionId, String name) {
-		this.sessionId = sessionId;
-		this.name = name;
 	}
 
 	public Developer(String name, String email, String password) {
 		this.name = name;
 		this.email = email;
 		this.password = password;
-		this.sessionId = UUID.randomUUID().toString();
+	}
+
+	// Helper method to add a table to past tables
+	public void addPastTable(PokerTable table) {
+		this.pastTables.add(table);
+		table.getPastParticipants().add(this); // Ensure bidirectional relationship is maintained
+	}
+
+	// Helper method to remove a table from past tables
+	public void removePastTable(PokerTable table) {
+		this.pastTables.remove(table);
+		table.getPastParticipants().remove(this);
 	}
 }

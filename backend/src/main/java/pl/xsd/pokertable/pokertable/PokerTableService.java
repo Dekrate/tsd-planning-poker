@@ -1,28 +1,26 @@
 package pl.xsd.pokertable.pokertable;
 
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.developer.Developer;
 import pl.xsd.pokertable.developer.DeveloperRepository;
 import pl.xsd.pokertable.exception.NotEveryoneVotedException;
 import pl.xsd.pokertable.exception.NotFoundException;
-import pl.xsd.pokertable.participation.Participation;
-import pl.xsd.pokertable.participation.ParticipationRepository;
 import pl.xsd.pokertable.userstory.UserStory;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class PokerTableService {
 
 	private final PokerTableRepository pokerTableRepository;
 	private final DeveloperRepository developerRepository;
-	private final ParticipationRepository participationRepository;
 
-	public PokerTableService(PokerTableRepository pokerTableRepository, DeveloperRepository developerRepository, ParticipationRepository participationRepository) {
+	public PokerTableService(PokerTableRepository pokerTableRepository, DeveloperRepository developerRepository) {
 		this.pokerTableRepository = pokerTableRepository;
 		this.developerRepository = developerRepository;
-		this.participationRepository = participationRepository;
 	}
 
 	@Transactional
@@ -43,12 +41,9 @@ public class PokerTableService {
 
 		if (votedDevelopersCount == totalDevelopers && totalDevelopers > 0) {
 			for (Developer dev : developers) {
-				if (dev.getVote() != null) {
-					Participation participation = new Participation(dev, pokerTable, dev.getVote());
-					participationRepository.save(participation);
-					dev.setVote(null);
-					developerRepository.save(dev);
-				}
+				dev.addPastTable(pokerTable);
+				dev.setVote(null);
+				developerRepository.save(dev);
 			}
 			pokerTable.setIsClosed(true);
 			pokerTableRepository.save(pokerTable);
@@ -67,6 +62,22 @@ public class PokerTableService {
 		return pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + tableId));
 	}
+
+	public Set<PokerTable> getAllActiveTables() {
+		return pokerTableRepository.findAllByIsClosedFalse();
+	}
+
+	@Transactional // Dodano @Transactional
+	public Set<PokerTable> getPastTablesForDeveloper(Long developerId) {
+		Developer developer = developerRepository.findById(developerId)
+				.orElseThrow(() -> new NotFoundException("Developer not found with ID: " + developerId));
+
+		// Dostęp do leniwie ładowanej kolekcji 'pastTables' odbywa się w ramach transakcji
+		return developer.getPastTables().stream()
+				.filter(PokerTable::getIsClosed)
+				.collect(Collectors.toUnmodifiableSet());
+	}
+
 
 	@Transactional
 	public byte[] exportUserStoriesToCsv(Long tableId) {
@@ -95,5 +106,21 @@ public class PokerTableService {
 			return "";
 		}
 		return field.replace("\"", "\"\"");
+	}
+
+	@Transactional
+	public void resetAllVotes(Long tableId) {
+		PokerTable pokerTable = pokerTableRepository.findById(tableId)
+				.orElseThrow(() -> new EntityNotFoundException("PokerTable with id " + tableId + " not found"));
+
+		if (!pokerTable.getIsActive()) {
+			throw new IllegalStateException("Cannot reset votes for a closed poker table.");
+		}
+
+		for (Developer dev : pokerTable.getDevelopers()) {
+			dev.setVote(null);
+			developerRepository.save(dev);
+		}
+		// Możesz tutaj dodać logikę, jeśli chcesz zresetować inne stany stołu, np. aktualną historyjkę, jeśli masz taką funkcjonalność.
 	}
 }

@@ -1,6 +1,5 @@
 package pl.xsd.pokertable.developer;
 
-import jakarta.servlet.http.HttpSession;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,15 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.config.JwtUtil;
 import pl.xsd.pokertable.exception.NotFoundException;
-import pl.xsd.pokertable.participation.Participation;
-import pl.xsd.pokertable.participation.ParticipationRepository;
 import pl.xsd.pokertable.pokertable.PokerTable;
+import pl.xsd.pokertable.pokertable.PokerTableDto;
 import pl.xsd.pokertable.pokertable.PokerTableRepository;
 import pl.xsd.pokertable.pokertable.PokerTableService;
 
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class DeveloperService {
@@ -27,17 +24,15 @@ public class DeveloperService {
 	private final PokerTableRepository pokerTableRepository;
 	private final PokerTableService pokerTableService;
 	private final BCryptPasswordEncoder bCryptPasswordEncoder;
-	private final ParticipationRepository participationRepository;
 	private final AuthenticationManager authenticationManager;
 	private final UserDetailsService userDetailsService;
 	private final JwtUtil jwtUtil;
 
-	public DeveloperService(DeveloperRepository developerRepository, PokerTableRepository pokerTableRepository, PokerTableService pokerTableService, BCryptPasswordEncoder bCryptPasswordEncoder, ParticipationRepository participationRepository, AuthenticationManager authenticationManager, UserDetailsService userDetailsService, JwtUtil jwtUtil) {
+	public DeveloperService(DeveloperRepository developerRepository, PokerTableRepository pokerTableRepository, PokerTableService pokerTableService, BCryptPasswordEncoder bCryptPasswordEncoder, AuthenticationManager authenticationManager, UserDetailsService userDetailsService, JwtUtil jwtUtil) {
 		this.developerRepository = developerRepository;
 		this.pokerTableRepository = pokerTableRepository;
 		this.pokerTableService = pokerTableService;
 		this.bCryptPasswordEncoder = bCryptPasswordEncoder;
-		this.participationRepository = participationRepository;
 		this.authenticationManager = authenticationManager;
 		this.userDetailsService = userDetailsService;
 		this.jwtUtil = jwtUtil;
@@ -72,21 +67,27 @@ public class DeveloperService {
 		developerRepository.save(developer);
 	}
 
-	public Developer getDeveloper(Long developerId) {
-		return developerRepository.findById(developerId)
+	public DeveloperDto getDeveloper(Long developerId) {
+		Developer developer = developerRepository.findById(developerId)
 				.orElseThrow(() -> new NotFoundException("Developer not found"));
+		return new DeveloperDto(developer);
 	}
 
 	public boolean hasVoted(Long developerId) {
-		Developer developer = getDeveloper(developerId);
+		Developer developer = developerRepository.findById(developerId)
+				.orElseThrow(() -> new NotFoundException("Developer not found"));
 		return developer.hasVoted();
 	}
 
-	public Set<Developer> getDevelopersForPokerTable(Long tableId) {
+	@Transactional // Dodano @Transactional
+	public Set<DeveloperDto> getDevelopersForPokerTable(Long tableId) {
 		PokerTable pokerTable = pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found"));
 
-		return pokerTable.getDevelopers();
+		// Dostęp do leniwie ładowanej kolekcji 'developers' odbywa się w ramach transakcji
+		return pokerTable.getDevelopers().stream()
+				.map(DeveloperDto::new)
+				.collect(Collectors.toSet());
 	}
 
 	@Transactional
@@ -99,53 +100,32 @@ public class DeveloperService {
 	}
 
 	@Transactional
-	public Map<String, Object> joinTable(String name, Long tableId, HttpSession session) {
-		String sessionId = session.getId();
-
+	public JoinResponseDto joinTable(String email, Long tableId) {
 		PokerTable table = pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + tableId));
 
-		Optional<Developer> existingDeveloper = developerRepository.findBySessionId(sessionId);
+		Developer developer = developerRepository.findByEmail(email)
+				.orElseThrow(() -> new NotFoundException("Developer not found with email: " + email));
 
-		Developer developer;
-
-		if (existingDeveloper.isPresent()) {
-			developer = existingDeveloper.get();
-			if (developer.getPokerTable() == null || !developer.getPokerTable().getId().equals(tableId)) {
-				developer.setPokerTable(table);
-				developer.setVote(null);
-				developerRepository.save(developer);
-			}
-		} else {
-			developer = new Developer(sessionId, name);
+		if (developer.getPokerTable() == null || !developer.getPokerTable().getId().equals(tableId)) {
 			developer.setPokerTable(table);
 			developer.setVote(null);
 			developerRepository.save(developer);
 		}
 
-		return Map.of(
-				"developer", Map.of(
-						"id", developer.getId(),
-						"name", developer.getName(),
-						"sessionId", developer.getSessionId()
-				),
-				"table", Map.of(
-						"id", table.getId(),
-						"name", table.getName(),
-						"createdAt", table.getCreatedAt()
-				)
-		);
+		return new JoinResponseDto(new DeveloperDto(developer), new PokerTableDto(table));
 	}
 
 	@Transactional
-	public Developer registerDeveloper(String name, String email, String password) {
+	public DeveloperDto registerDeveloper(String name, String email, String password) {
 		if (developerRepository.findByEmail(email).isPresent()) {
 			throw new IllegalArgumentException("Developer with this email already exists.");
 		}
 
 		String encodedPassword = bCryptPasswordEncoder.encode(password);
 		Developer newDeveloper = new Developer(name, email, encodedPassword);
-		return developerRepository.save(newDeveloper);
+		Developer savedDeveloper = developerRepository.save(newDeveloper);
+		return new DeveloperDto(savedDeveloper);
 	}
 
 	@Transactional
@@ -159,13 +139,6 @@ public class DeveloperService {
 		}
 		final UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 		return jwtUtil.generateToken(userDetails);
-	}
-
-	public Set<Participation> getDeveloperParticipationHistory(Long developerId) {
-		developerRepository.findById(developerId)
-				.orElseThrow(() -> new NotFoundException("Developer not found with ID: " + developerId));
-
-		return participationRepository.findByDeveloperId(developerId);
 	}
 
 	public Developer getDeveloperByEmail(String email) {

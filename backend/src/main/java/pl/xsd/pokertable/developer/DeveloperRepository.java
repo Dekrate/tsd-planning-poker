@@ -7,6 +7,5 @@ import java.util.Optional;
 
 @Repository
 public interface DeveloperRepository extends JpaRepository<Developer, Long> {
-	Optional<Developer> findBySessionId(String sessionId);
 	Optional<Developer> findByEmail(String email);
 }
