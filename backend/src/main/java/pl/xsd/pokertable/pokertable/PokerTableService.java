@@ -1,6 +1,5 @@
 package pl.xsd.pokertable.pokertable;
 
-import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.developer.Developer;
@@ -67,12 +66,10 @@ public class PokerTableService {
 		return pokerTableRepository.findAllByIsClosedFalse();
 	}
 
-	@Transactional // Dodano @Transactional
+	@Transactional
 	public Set<PokerTable> getPastTablesForDeveloper(Long developerId) {
 		Developer developer = developerRepository.findById(developerId)
 				.orElseThrow(() -> new NotFoundException("Developer not found with ID: " + developerId));
-
-		// Dostęp do leniwie ładowanej kolekcji 'pastTables' odbywa się w ramach transakcji
 		return developer.getPastTables().stream()
 				.filter(PokerTable::getIsClosed)
 				.collect(Collectors.toUnmodifiableSet());
@@ -111,7 +108,7 @@ public class PokerTableService {
 	@Transactional
 	public void resetAllVotes(Long tableId) {
 		PokerTable pokerTable = pokerTableRepository.findById(tableId)
-				.orElseThrow(() -> new EntityNotFoundException("PokerTable with id " + tableId + " not found"));
+				.orElseThrow(() -> new NotFoundException("PokerTable with id " + tableId + " not found"));
 
 		if (!pokerTable.getIsActive()) {
 			throw new IllegalStateException("Cannot reset votes for a closed poker table.");
@@ -121,6 +118,5 @@ public class PokerTableService {
 			dev.setVote(null);
 			developerRepository.save(dev);
 		}
-		// Możesz tutaj dodać logikę, jeśli chcesz zresetować inne stany stołu, np. aktualną historyjkę, jeśli masz taką funkcjonalność.
 	}
 }

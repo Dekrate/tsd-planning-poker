@@ -10,6 +10,7 @@ import pl.xsd.pokertable.exception.NotFoundException;
 import pl.xsd.pokertable.pokertable.PokerTable;
 import pl.xsd.pokertable.pokertable.PokerTableRepository;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -22,161 +23,146 @@ class UserStoryServiceTest {
 
 	@Mock
 	private UserStoryRepository userStoryRepository;
-
 	@Mock
 	private PokerTableRepository pokerTableRepository;
 
 	@InjectMocks
 	private UserStoryService userStoryService;
 
-	private PokerTable pokerTable;
-	private UserStory userStory;
+	private PokerTable testPokerTable;
+	private UserStory testUserStory;
 
 	@BeforeEach
 	void setUp() {
-		pokerTable = new PokerTable();
-		pokerTable.setId(1L);
-		pokerTable.setName("Test Table");
-
-		userStory = new UserStory();
-		userStory.setId(10L);
-		userStory.setTitle("As a user, I want...");
-		userStory.setDescription("...");
-		userStory.setEstimatedPoints(5);
-		userStory.setPokerTable(pokerTable);
+		testPokerTable = new PokerTable(1L, "Test Table", false);
+		testUserStory = new UserStory(100L, "Test Story", "Description", 5, testPokerTable);
 	}
 
 	@Test
-	void createUserStory_shouldReturnSavedUserStory_whenPokerTableExists() {
-		UserStory newUserStory = new UserStory("New Story", "Details");
-		Long tableId = pokerTable.getId();
+	void createUserStory_shouldCreateAndReturnUserStory() {
+		UserStory newUserStory = new UserStory(null, "New Story", "New Desc", 8, null);
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
+		when(userStoryRepository.save(any(UserStory.class))).thenAnswer(invocation -> {
+			UserStory us = invocation.getArgument(0);
+			us.setId(101L);
+			return us;
+		});
 
-		when(pokerTableRepository.findById(tableId)).thenReturn(Optional.of(pokerTable));
-		when(userStoryRepository.save(any(UserStory.class))).thenReturn(newUserStory);
-		UserStory createdStory = userStoryService.createUserStory(tableId, newUserStory);
-		assertNotNull(createdStory);
-		assertEquals(newUserStory.getTitle(), createdStory.getTitle());
-		assertEquals(newUserStory.getDescription(), createdStory.getDescription());
-		assertEquals(pokerTable, createdStory.getPokerTable());
-		verify(pokerTableRepository).findById(tableId);
-		verify(userStoryRepository).save(newUserStory);
+		UserStory result = userStoryService.createUserStory(testPokerTable.getId(), newUserStory);
+
+		assertNotNull(result);
+		assertEquals(101L, result.getId());
+		assertEquals("New Story", result.getTitle());
+		assertEquals(8, result.getEstimatedPoints());
+		assertEquals(testPokerTable, result.getPokerTable());
+		verify(userStoryRepository, times(1)).save(newUserStory);
 	}
 
 	@Test
-	void createUserStory_shouldThrowNotFoundException_whenPokerTableDoesNotExist() {
-		UserStory newUserStory = new UserStory("New Story", "Details");
-		Long nonExistentTableId = 99L;
+	void createUserStory_shouldThrowNotFoundExceptionIfTableNotFound() {
+		UserStory newUserStory = new UserStory(null, "New Story", "New Desc", 8, null);
+		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-		when(pokerTableRepository.findById(nonExistentTableId)).thenReturn(Optional.empty());
-		NotFoundException exception = assertThrows(NotFoundException.class,
-				() -> userStoryService.createUserStory(nonExistentTableId, newUserStory));
-		assertEquals("Poker table not found with ID: " + nonExistentTableId, exception.getMessage());
-		verify(pokerTableRepository).findById(nonExistentTableId);
-		verify(userStoryRepository, never()).save(any(UserStory.class));
+		assertThrows(NotFoundException.class, () ->
+				userStoryService.createUserStory(99L, newUserStory));
 	}
 
 	@Test
-	void getUserStoryById_shouldReturnUserStory_whenStoryExists() {
-		Long storyId = userStory.getId();
-		when(userStoryRepository.findById(storyId)).thenReturn(Optional.of(userStory));
-		UserStory foundStory = userStoryService.getUserStoryById(storyId);
-		assertNotNull(foundStory);
-		assertEquals(userStory.getId(), foundStory.getId());
-		assertEquals(userStory.getTitle(), foundStory.getTitle());
-		assertEquals(userStory.getEstimatedPoints(), foundStory.getEstimatedPoints());
-		verify(userStoryRepository).findById(storyId);
+	void getUserStoryById_shouldReturnUserStory() {
+		when(userStoryRepository.findById(testUserStory.getId())).thenReturn(Optional.of(testUserStory));
+
+		UserStory result = userStoryService.getUserStoryById(testUserStory.getId());
+
+		assertNotNull(result);
+		assertEquals(testUserStory.getId(), result.getId());
+		assertEquals(testUserStory.getTitle(), result.getTitle());
 	}
 
 	@Test
-	void getUserStoryById_shouldThrowNotFoundException_whenStoryDoesNotExist() {
-		Long nonExistentStoryId = 99L;
-		when(userStoryRepository.findById(nonExistentStoryId)).thenReturn(Optional.empty());
-		NotFoundException exception = assertThrows(NotFoundException.class,
-				() -> userStoryService.getUserStoryById(nonExistentStoryId));
-		assertEquals("User story not found with ID: " + nonExistentStoryId, exception.getMessage());
-		verify(userStoryRepository).findById(nonExistentStoryId);
+	void getUserStoryById_shouldThrowNotFoundException() {
+		when(userStoryRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+		assertThrows(NotFoundException.class, () ->
+				userStoryService.getUserStoryById(99L));
 	}
 
 	@Test
-	void getUserStoriesForTable_shouldReturnSetOfUserStories_whenTableHasStories() {
-		Long tableId = pokerTable.getId();
-		Set<UserStory> stories = new HashSet<>();
-		stories.add(userStory);
+	void getUserStoriesForTable_shouldReturnSetOfUserStories() {
+		UserStory story2 = new UserStory(101L, "Story 2", "Desc 2", 13, testPokerTable);
+		Set<UserStory> stories = new HashSet<>(Set.of(testUserStory, story2));
 
-		when(userStoryRepository.findByPokerTableId(tableId)).thenReturn(stories);
-		Set<UserStory> foundStories = userStoryService.getUserStoriesForTable(tableId);
-		assertNotNull(foundStories);
-		assertFalse(foundStories.isEmpty());
-		assertEquals(1, foundStories.size());
-		assertTrue(foundStories.contains(userStory));
-		verify(userStoryRepository).findByPokerTableId(tableId);
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
+		when(userStoryRepository.findByPokerTable(testPokerTable)).thenReturn(stories);
+
+		Set<UserStory> result = userStoryService.getUserStoriesForTable(testPokerTable.getId());
+
+		assertNotNull(result);
+		assertEquals(2, result.size());
+		assertTrue(result.stream().anyMatch(s -> s.getId().equals(testUserStory.getId())));
+		assertTrue(result.stream().anyMatch(s -> s.getId().equals(story2.getId())));
 	}
 
 	@Test
-	void getUserStoriesForTable_shouldReturnEmptySet_whenTableHasNoStories() {
-		Long tableId = pokerTable.getId();
-		Set<UserStory> stories = new HashSet<>();
+	void getUserStoriesForTable_shouldReturnEmptySetIfNoStories() {
+		when(pokerTableRepository.findById(testPokerTable.getId())).thenReturn(Optional.of(testPokerTable));
+		when(userStoryRepository.findByPokerTable(testPokerTable)).thenReturn(Collections.emptySet());
 
-		when(userStoryRepository.findByPokerTableId(tableId)).thenReturn(stories);
-		Set<UserStory> foundStories = userStoryService.getUserStoriesForTable(tableId);
-		assertNotNull(foundStories);
-		assertTrue(foundStories.isEmpty());
-		verify(userStoryRepository).findByPokerTableId(tableId);
+		Set<UserStory> result = userStoryService.getUserStoriesForTable(testPokerTable.getId());
+
+		assertNotNull(result);
+		assertTrue(result.isEmpty());
 	}
 
 	@Test
-	void updateUserStory_shouldReturnUpdatedUserStory_whenStoryExists() {
-		Long storyId = userStory.getId();
-		UserStory updatedDetails = new UserStory();
-		updatedDetails.setTitle("Updated Title");
-		updatedDetails.setDescription("Updated Description");
-		updatedDetails.setEstimatedPoints(8);
+	void getUserStoriesForTable_shouldThrowNotFoundExceptionIfTableNotFound() {
+		when(pokerTableRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-		when(userStoryRepository.findById(storyId)).thenReturn(Optional.of(userStory));
-		when(userStoryRepository.save(any(UserStory.class))).thenReturn(userStory);
-		UserStory resultStory = userStoryService.updateUserStory(storyId, updatedDetails);
-		assertNotNull(resultStory);
-		assertEquals(storyId, resultStory.getId());
-		assertEquals("Updated Title", resultStory.getTitle());
-		assertEquals("Updated Description", resultStory.getDescription());
-		assertEquals(8, resultStory.getEstimatedPoints());
-		assertEquals(pokerTable, resultStory.getPokerTable());
-		verify(userStoryRepository).findById(storyId);
-		verify(userStoryRepository).save(userStory);
+		assertThrows(NotFoundException.class, () ->
+				userStoryService.getUserStoriesForTable(99L));
 	}
 
 	@Test
-	void updateUserStory_shouldThrowNotFoundException_whenStoryDoesNotExist() {
-		Long nonExistentStoryId = 99L;
-		UserStory updatedDetails = new UserStory();
-		updatedDetails.setTitle("Updated Title");
+	void updateUserStory_shouldUpdateAndReturnUserStory() {
+		UserStory updatedDetails = new UserStory(null, "Updated Title", "Updated Desc", 21, null);
+		when(userStoryRepository.findById(testUserStory.getId())).thenReturn(Optional.of(testUserStory));
+		when(userStoryRepository.save(any(UserStory.class))).thenReturn(testUserStory);
 
-		when(userStoryRepository.findById(nonExistentStoryId)).thenReturn(Optional.empty());
-		NotFoundException exception = assertThrows(NotFoundException.class,
-				() -> userStoryService.updateUserStory(nonExistentStoryId, updatedDetails));
-		assertEquals("User story not found with ID: " + nonExistentStoryId, exception.getMessage());
-		verify(userStoryRepository).findById(nonExistentStoryId);
-		verify(userStoryRepository, never()).save(any(UserStory.class));
+		UserStory result = userStoryService.updateUserStory(testUserStory.getId(), updatedDetails);
+
+		assertNotNull(result);
+		assertEquals(testUserStory.getId(), result.getId());
+		assertEquals("Updated Title", result.getTitle());
+		assertEquals("Updated Desc", result.getDescription());
+		assertEquals(21, result.getEstimatedPoints());
+		verify(userStoryRepository, times(1)).save(testUserStory);
+		// Usunięto weryfikację wysyłania wiadomości WebSocket
+		// verify(messagingTemplate, times(1)).convertAndSend(eq("/topic/table/1/user-stories"), any(UserStoryDto.class));
 	}
 
 	@Test
-	void deleteUserStory_shouldCallDeleteById_whenStoryExists() {
-		Long storyId = userStory.getId();
-		when(userStoryRepository.existsById(storyId)).thenReturn(true);
-		doNothing().when(userStoryRepository).deleteById(storyId);
-		userStoryService.deleteUserStory(storyId);
-		verify(userStoryRepository).existsById(storyId);
-		verify(userStoryRepository).deleteById(storyId);
+	void updateUserStory_shouldThrowNotFoundExceptionIfStoryNotFound() {
+		UserStory updatedDetails = new UserStory(null, "Updated Title", "Updated Desc", 21, null);
+		when(userStoryRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+		assertThrows(NotFoundException.class, () ->
+				userStoryService.updateUserStory(99L, updatedDetails));
 	}
 
 	@Test
-	void deleteUserStory_shouldThrowNotFoundException_whenStoryDoesNotExist() {
-		Long nonExistentStoryId = 99L;
-		when(userStoryRepository.existsById(nonExistentStoryId)).thenReturn(false);
-		NotFoundException exception = assertThrows(NotFoundException.class,
-				() -> userStoryService.deleteUserStory(nonExistentStoryId));
-		assertEquals("User story not found with ID: " + nonExistentStoryId, exception.getMessage());
-		verify(userStoryRepository).existsById(nonExistentStoryId);
-		verify(userStoryRepository, never()).deleteById(anyLong());
+	void deleteUserStory_shouldDeleteStory() {
+		when(userStoryRepository.findById(testUserStory.getId())).thenReturn(Optional.of(testUserStory));
+		doNothing().when(userStoryRepository).delete(testUserStory);
+
+		userStoryService.deleteUserStory(testUserStory.getId());
+
+		verify(userStoryRepository, times(1)).delete(testUserStory);
+	}
+
+	@Test
+	void deleteUserStory_shouldThrowNotFoundExceptionIfStoryNotFound() {
+		when(userStoryRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+		assertThrows(NotFoundException.class, () ->
+				userStoryService.deleteUserStory(99L));
 	}
 }

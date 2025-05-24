@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import pl.xsd.pokertable.developer.Developer;
 import pl.xsd.pokertable.developer.DeveloperService;
+import pl.xsd.pokertable.userstory.UserStory;
 import pl.xsd.pokertable.userstory.UserStoryDto;
 import pl.xsd.pokertable.userstory.UserStoryService;
 
@@ -25,15 +26,15 @@ public class PokerTableController {
 	private final DeveloperService developerService;
 
 	@PostMapping
-	public ResponseEntity<PokerTableDto> createTable() { // Zmieniono zwracany typ na PokerTableDto
+	public ResponseEntity<PokerTableDto> createTable() {
 		PokerTable newTable = pokerTableService.createPokerTable("New Planning Session");
-		return ResponseEntity.status(HttpStatus.CREATED).body(new PokerTableDto(newTable)); // Konwersja na DTO
+		return ResponseEntity.status(HttpStatus.CREATED).body(new PokerTableDto(newTable));
 	}
 
 	@GetMapping("/{tableId}")
-	public ResponseEntity<PokerTableDto> getTableById(@PathVariable Long tableId) { // Zmieniono zwracany typ na PokerTableDto
+	public ResponseEntity<PokerTableDto> getTableById(@PathVariable Long tableId) {
 		PokerTable table = pokerTableService.getTableById(tableId);
-		return ResponseEntity.ok(new PokerTableDto(table)); // Konwersja na DTO
+		return ResponseEntity.ok(new PokerTableDto(table));
 	}
 
 	@PatchMapping("/{tableId}/close")
@@ -43,25 +44,24 @@ public class PokerTableController {
 	}
 
 	@GetMapping("/active")
-	public ResponseEntity<PokerTableDto> getActiveTable() { // Zmieniono zwracany typ na PokerTableDto
+	public ResponseEntity<PokerTableDto> getActiveTable() {
 		PokerTable activeTable = pokerTableService.getActiveTable();
-		return ResponseEntity.ok(new PokerTableDto(activeTable)); // Konwersja na DTO
+		return ResponseEntity.ok(new PokerTableDto(activeTable));
 	}
 
 	@GetMapping("/all-active")
-	public ResponseEntity<List<PokerTableDto>> getAllActiveTables() { // Zmieniono zwracany typ na List<PokerTableDto>
+	public ResponseEntity<List<PokerTableDto>> getAllActiveTables() {
 		Set<PokerTable> activeTables = pokerTableService.getAllActiveTables();
-		// Konwersja listy encji na listę DTO
 		List<PokerTableDto> activeTableDtos = activeTables.stream()
 				.map(PokerTableDto::new)
-				.collect(Collectors.toList());
+				.toList();
 		return ResponseEntity.ok(activeTableDtos);
 	}
 
 	@GetMapping("/{tableId}/user-stories")
 	public ResponseEntity<Set<UserStoryDto>> getUserStoriesForTable(@PathVariable Long tableId) {
-		Set<UserStoryDto> userStories = userStoryService.getUserStoriesForTable(tableId);
-		return ResponseEntity.ok(userStories);
+		Set<UserStory> userStories = userStoryService.getUserStoriesForTable(tableId);
+		return ResponseEntity.ok(userStories.stream().map(UserStory::toDto).collect(Collectors.toUnmodifiableSet()));
 	}
 
 	@GetMapping("/{tableId}/export-stories")
@@ -74,13 +74,12 @@ public class PokerTableController {
 	}
 
 	@GetMapping("/my-closed")
-	public ResponseEntity<Set<PokerTableDto>> getMyClosedTables() { // Zmieniono zwracany typ na List<PokerTableDto>
+	public ResponseEntity<Set<PokerTableDto>> getMyClosedTables() {
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String && authentication.getPrincipal().equals("anonymousUser"))) {
 			String email = authentication.getName();
 			Developer developer = developerService.getDeveloperByEmail(email);
 			Set<PokerTable> closedTables = pokerTableService.getPastTablesForDeveloper(developer.getId());
-			// Konwersja listy encji na listę DTO
 			Set<PokerTableDto> closedTableDtos = closedTables.stream()
 					.map(PokerTableDto::new)
 					.collect(Collectors.toUnmodifiableSet());

@@ -79,12 +79,10 @@ public class DeveloperService {
 		return developer.hasVoted();
 	}
 
-	@Transactional // Dodano @Transactional
+	@Transactional
 	public Set<DeveloperDto> getDevelopersForPokerTable(Long tableId) {
 		PokerTable pokerTable = pokerTableRepository.findById(tableId)
 				.orElseThrow(() -> new NotFoundException("Poker table not found"));
-
-		// Dostęp do leniwie ładowanej kolekcji 'developers' odbywa się w ramach transakcji
 		return pokerTable.getDevelopers().stream()
 				.map(DeveloperDto::new)
 				.collect(Collectors.toSet());

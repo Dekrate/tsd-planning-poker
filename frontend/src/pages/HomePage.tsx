@@ -30,7 +30,6 @@ import {
     resetAllVotes
 } from '../services/api';
 
-// New authentication form components
 interface LoginFormProps {
     onSubmit: (email: string, password: string) => void;
     isSubmitting: boolean;
@@ -171,7 +170,7 @@ export const HomePage = () => {
     const [authMode, setAuthMode] = useState<AuthMode>('login');
     const [error, setError] = useState<string | null>(null);
     const [authError, setAuthError] = useState<string | null>(null);
-    const [tableDetailsForJoin, setTableDetailsForJoin] = useState<any>(null); // This might not be needed anymore if direct join is removed
+    const [tableDetailsForJoin, setTableDetailsForJoin] = useState<any>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isUserStoryProcessing, setIsUserStoryProcessing] = useState(false);
 
@@ -180,7 +179,6 @@ export const HomePage = () => {
 
     const [currentUserHasVoted, setCurrentUserHasVoted] = useState(false);
 
-    // Funkcja do automatycznego dołączania do stołu (dla zalogowanych użytkowników)
     const autoJoinTable = useCallback(async (tableId: number) => {
         if (!developer) {
             console.error("Developer not logged in for auto-join. This should not happen.");
@@ -196,9 +194,8 @@ export const HomePage = () => {
             setDeveloper(response.developer);
             setTable(response.table);
             setMode('on-table');
-            localStorage.setItem('developerId', response.developer.id.toString()); // Update developerId in local storage
+            localStorage.setItem('developerId', response.developer.id.toString());
 
-            // Initial fetch for developers and stories (polling will take over)
             const devs = await getDevelopers(response.table.id);
             setDevelopersList(devs);
             const stories = await getUserStoriesByTableId(response.table.id);
@@ -219,7 +216,6 @@ export const HomePage = () => {
     }, [developer, navigate, searchParams]);
 
 
-    // Funkcja do obsługi automatycznego logowania/sprawdzenia sesji
     const autoLogin = useCallback(async () => {
         const storedToken = localStorage.getItem('jwtToken');
         const storedDeveloperId = localStorage.getItem('developerId');
@@ -260,12 +256,10 @@ export const HomePage = () => {
             autoJoinTable(Number(tableIdFromUrl));
         }
         else if (tableIdFromUrl && !developer && mode !== 'auth') {
-            // Jeśli tableId w URL, ale niezalogowany, przekieruj do autoryzacji i ustaw komunikat błędu
             navigate('/join-session', { replace: true });
             setMode('auth');
             setAuthMode('login');
             setAuthError("Aby dołączyć do sesji, musisz się zalogować lub zarejestrować.");
-            // Zachowaj tableId w localStorage, aby po zalogowaniu można było dołączyć
             localStorage.setItem('pendingJoinTableId', tableIdFromUrl);
         }
         else if (!tableIdFromUrl && developer && mode !== 'initial' && mode !== 'on-table' && mode !== 'view-only') {
@@ -274,16 +268,13 @@ export const HomePage = () => {
     }, [searchParams, developer, mode, autoJoinTable, navigate]);
 
 
-    // Funkcja do pobierania listy deweloperów (używana w pollingu)
     const fetchDevelopersList = useCallback(async () => {
-        if (table?.id && developer?.id) { // Dodaj developer?.id do warunku
+        if (table?.id && developer?.id) {
             try {
                 const devs: Developer[] = await getDevelopers(table.id);
-                // Opcjonalna optymalizacja: aktualizuj stan tylko jeśli dane się zmieniły
                 if (JSON.stringify(devs) !== JSON.stringify(developersList)) {
                     setDevelopersList(devs);
 
-                    // Sprawdź, czy głos aktualnego użytkownika został zresetowany
                     const currentDev = devs.find(d => d.id === developer.id);
                     if (currentDev && currentDev.vote === null) {
                         setCurrentUserHasVoted(false);
@@ -296,29 +287,25 @@ export const HomePage = () => {
             }
         } else {
             setDevelopersList([]);
-            setCurrentUserHasVoted(false); // Resetuj również stan głosowania, jeśli nie ma stołu/dewelopera
+            setCurrentUserHasVoted(false);
         }
-    }, [table?.id, developer?.id, developersList]); // Dodano developer?.id do zależności
+    }, [table?.id, developer?.id, developersList]);
 
-    // Polling dla listy deweloperów i statusu głosowania
     useEffect(() => {
         let developerPollingInterval: NodeJS.Timeout | undefined;
 
         if (developer?.id && table?.id && mode === 'on-table') {
-            // Pierwsze pobranie od razu
             fetchDevelopersList();
 
-            // Ustawienie interwału dla cyklicznego odpytywania (np. co 3 sekundy)
             developerPollingInterval = setInterval(() => {
                 fetchDevelopersList();
-            }, 3000); // Polling co 3 sekundy
+            }, 3000);
 
         } else {
-            setDevelopersList([]); // Wyczyść deweloperów, gdy nie jesteśmy przy stole
+            setDevelopersList([]);
             setCurrentUserHasVoted(false);
         }
 
-        // Cleanup function - wyczyść interwał, gdy komponent się odmontuje lub zależności się zmienią
         return () => {
             if (developerPollingInterval) {
                 clearInterval(developerPollingInterval);
@@ -327,13 +314,11 @@ export const HomePage = () => {
     }, [developer, table, mode, fetchDevelopersList]);
 
 
-    // Funkcja do pobierania user stories (używana w pollingu)
     const fetchUserStoriesForTable = useCallback(async () => {
         if (table?.id) {
             setIsUserStoryProcessing(true);
             try {
                 const stories: UserStory[] = await getUserStoriesByTableId(table.id);
-                // Opcjonalna optymalizacja: aktualizuj stan tylko jeśli dane się zmieniły
                 if (JSON.stringify(stories) !== JSON.stringify(userStories)) {
                     setUserStories(stories);
                 }
@@ -347,25 +332,20 @@ export const HomePage = () => {
         } else {
             setUserStories([]);
         }
-    }, [table?.id, userStories]); // Dodaj userStories do zależności, aby porównywać
+    }, [table?.id, userStories]);
 
-    // Polling dla User Stories
     useEffect(() => {
         let storyPollingInterval: NodeJS.Timeout | undefined;
 
         if (table?.id && (mode === 'on-table' || mode === 'view-only')) {
-            // Pierwsze pobranie od razu
             fetchUserStoriesForTable();
-            // Następnie co 5 sekund (możesz dostosować interwał)
             storyPollingInterval = setInterval(() => {
                 fetchUserStoriesForTable();
-            }, 5000); // Odpytywanie co 5 sekund
+            }, 5000);
         } else {
-            // Wyczyść interwał, jeśli nie jesteśmy przy stole
             setUserStories([]);
         }
 
-        // Funkcja czyszcząca interwał po odmontowaniu komponentu lub zmianie stanu table/mode
         return () => {
             if (storyPollingInterval) {
                 clearInterval(storyPollingInterval);
@@ -374,7 +354,6 @@ export const HomePage = () => {
     }, [table?.id, mode, fetchUserStoriesForTable]);
 
 
-    // Zaktualizowany useEffect do ładowania aktywnych i zamkniętych stołów po zalogowaniu
     useEffect(() => {
         const loadTables = async () => {
             if (mode === 'initial' && developer) {
@@ -386,10 +365,9 @@ export const HomePage = () => {
                     const closed: PokerTable[] = await getMyClosedTables(developer.id);
                     setClosedTables(closed);
 
-                    // Sprawdź, czy jest oczekujące zaproszenie po zalogowaniu
                     const pendingJoinTableId = localStorage.getItem('pendingJoinTableId');
                     if (pendingJoinTableId) {
-                        localStorage.removeItem('pendingJoinTableId'); // Usuń po użyciu
+                        localStorage.removeItem('pendingJoinTableId');
                         await autoJoinTable(Number(pendingJoinTableId));
                     }
 
@@ -403,7 +381,7 @@ export const HomePage = () => {
         };
 
         loadTables();
-    }, [mode, developer, autoJoinTable]); // Dodano autoJoinTable do zależności
+    }, [mode, developer, autoJoinTable]);
 
 
     const handleJoin = async (tableIdToJoin: number) => {
@@ -412,7 +390,6 @@ export const HomePage = () => {
             setError("Musisz być zalogowany, aby dołączyć do sesji.");
             setMode('auth');
             setAuthMode('login');
-            // Zachowaj tableId w localStorage, aby po zalogowaniu można było dołączyć
             localStorage.setItem('pendingJoinTableId', tableIdToJoin.toString());
             return;
         }
@@ -448,7 +425,7 @@ export const HomePage = () => {
             setTable(selectedTable);
             const stories: UserStory[] = await getUserStoriesByTableId(tableId);
             setUserStories(stories);
-            setDevelopersList([]); // Resetujemy listę deweloperów, aby nie wyświetlać ich w trybie archiwalnym
+            setDevelopersList([]);
             setMode('view-only');
         } catch (err: any) {
             console.error("Failed to view past session:", err);
@@ -465,14 +442,12 @@ export const HomePage = () => {
         setError(null);
         try {
             await closePokerTable(table.id);
-            // Po zamknięciu, wróć do widoku początkowego i odśwież listy stołów
             setTable(null);
             setDevelopersList([]);
             setUserStories([]);
             setEditingStoryId(null);
             setCurrentUserHasVoted(false);
             setMode('initial');
-            // Ponownie załaduj aktywne i zamknięte stoły, aby odświeżyć widok
             if (developer) {
                 const active = await getAllActiveTables();
                 setActiveTables(active);
@@ -494,13 +469,11 @@ export const HomePage = () => {
         setEditingStoryId(null);
         setCurrentUserHasVoted(false);
         setMode('initial');
-        navigate('/', { replace: true }); // Wyczyść parametry URL
+        navigate('/', { replace: true });
     };
 
 
     const handleVoteSuccess = async () => {
-        // Po głosowaniu, natychmiast odśwież listę deweloperów.
-        // `WorkspaceDevelopersList` zaktualizuje `currentUserHasVoted` na podstawie danych z backendu.
         fetchDevelopersList();
     };
 
@@ -539,7 +512,7 @@ export const HomePage = () => {
         setError(null);
         try {
             await createUserStory(table.id, storyData);
-            await fetchUserStoriesForTable(); // Natychmiastowe odświeżenie po dodaniu
+            await fetchUserStoriesForTable();
         } catch (err: any) {
             console.error("Error creating user story:", err);
             setError(`Failed to create user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -560,7 +533,7 @@ export const HomePage = () => {
         try {
             await updateUserStory(storyId, storyData);
             setEditingStoryId(null);
-            await fetchUserStoriesForTable(); // Natychmiastowe odświeżenie po aktualizacji
+            await fetchUserStoriesForTable();
         } catch (err: any) {
             console.error("Error updating user story:", err);
             setError(`Failed to update user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -581,7 +554,7 @@ export const HomePage = () => {
         setError(null);
         try {
             await deleteUserStory(storyId);
-            await fetchUserStoriesForTable(); // Natychmiastowe odświeżenie po usunięciu
+            await fetchUserStoriesForTable();
         } catch (err: any) {
             console.error("Error deleting user story:", err);
             setError(`Failed to delete user story: ${err.response?.data?.message || err.message || 'Unknown error'}`);
@@ -663,15 +636,12 @@ export const HomePage = () => {
         }
     };
 
-    // Obsługa resetowania wszystkich głosów
     const handleResetAllVotes = async () => {
         if (!table?.id) return;
         setIsProcessing(true);
         setError(null);
         try {
             await resetAllVotes(table.id);
-            // Po zresetowaniu głosów, natychmiast odśwież listę deweloperów.
-            // `WorkspaceDevelopersList` zaktualizuje `currentUserHasVoted` na podstawie danych z backendu.
             fetchDevelopersList();
         } catch (err: any) {
             console.error("Error resetting all votes:", err);
@@ -704,7 +674,6 @@ export const HomePage = () => {
     return (
         <div className="container mt-5">
             <div className="d-flex justify-content-between align-items-center mb-4">
-                {/* Tytuł strony w zależności od trybu */}
                 {table && <h1 className="mb-0">Planning Poker: {table.name}</h1>}
                 {mode === 'joining-specific' && tableDetailsForJoin && <h1 className="mb-0">Dołącz do Planning Poker: {tableDetailsForJoin.name}</h1>}
                 {mode === 'initial' && <h1 className="mb-0">Planning Poker</h1>}
@@ -712,7 +681,6 @@ export const HomePage = () => {
                 {mode === 'view-only' && table && <h1 className="mb-0">Historia sesji: {table.name}</h1>}
 
 
-                {/* Przyciski logowania/rejestracji/wylogowania */}
                 <div>
                     {developer ? (
                         <>
@@ -738,7 +706,6 @@ export const HomePage = () => {
                 <Alert variant="danger" className="mt-4">{error}</Alert>
             )}
 
-            {/* Sekcja uwierzyteltniania (logowanie/rejestracja) */}
             {mode === 'auth' && (
                 <div className="d-flex justify-content-center mt-5">
                     {authMode === 'login' ? (
@@ -749,7 +716,6 @@ export const HomePage = () => {
                 </div>
             )}
 
-            {/* Sekcja początkowa (utwórz/dołącz do sesji) - widoczna po zalogowaniu, jeśli nie na stole */}
             {mode === 'initial' && developer && (
                 <>
                     <p>Witaj! Utwórz nową sesję planowania lub dołącz do niej za pomocą linku z zaproszeniem.</p>
@@ -785,7 +751,6 @@ export const HomePage = () => {
                         </ListGroup>
                     )}
 
-                    {/* Zaktualizowana sekcja: Dostępne poprzednie sesje (tylko te, w których deweloper brał udział) */}
                     <h4 className="mt-5 mb-3">Twoje poprzednie sesje (tylko do odczytu):</h4>
                     {isProcessing ? (
                         <p>Ładowanie poprzednich sesji...</p>
@@ -794,7 +759,7 @@ export const HomePage = () => {
                     ) : (
                         <ListGroup className="mt-3">
                             {closedTables.map(closedTable => (
-                                <ListGroup.Item key={closedTable.id} className="d-flex justify-content.between align-items-center">
+                                <ListGroup.Item key={closedTable.id} className="d-flex justify-content-between align-items-center">
                                     <span>{closedTable.name} (ID: {closedTable.id})</span>
                                     <Button
                                         variant="outline-info"
@@ -811,7 +776,6 @@ export const HomePage = () => {
                 </>
             )}
 
-            {/* Sekcja dołączania do konkretnej sesji (z linku) - teraz tylko przekierowuje do logowania/rejestracji */}
             {mode === 'joining-specific' && !developer && tableDetailsForJoin && (
                 <Alert variant="info" className="mt-4">
                     Aby dołączyć do sesji <strong>{tableDetailsForJoin.name}</strong>, musisz się zalogować lub zarejestrować.
@@ -821,24 +785,22 @@ export const HomePage = () => {
 
             {isReadyOnTable && (
                 <>
-                    {/* Przyciski akcji na stole */}
                     <div className="d-flex justify-content-between mb-4">
                         <Button
                             variant="secondary"
-                            onClick={handleBackToSessionList} // Przycisk powrotu do listy
+                            onClick={handleBackToSessionList}
                             disabled={isProcessing}
                         >
                             Wróć do listy sesji
                         </Button>
                         <Button
                             variant="danger"
-                            onClick={handleCloseTable} // Przycisk zamknięcia stołu
+                            onClick={handleCloseTable}
                             disabled={isProcessing}
                             className="ms-2"
                         >
                             Zamknij sesję
                         </Button>
-                        {/* Przycisk: Resetuj głosy */}
                         <Button
                             variant="warning"
                             onClick={handleResetAllVotes}
@@ -849,7 +811,6 @@ export const HomePage = () => {
                         </Button>
                     </div>
 
-                    {/* User Story Section */}
                     <UserStoryList
                         userStories={userStories}
                         onEditClick={handleEditStoryClick}
@@ -860,7 +821,6 @@ export const HomePage = () => {
                         isSubmitting={isUserStoryProcessing}
                     />
 
-                    {/* Add New Story Form (only if not editing) */}
                     {editingStoryId === null && (
                         <UserStoryForm
                             onSubmit={handleAddStory}
@@ -868,7 +828,6 @@ export const HomePage = () => {
                         />
                     )}
 
-                    {/* Export Button */}
                     {userStories.length > 0 && (
                         <div className="mt-4">
                             <Button
@@ -882,7 +841,6 @@ export const HomePage = () => {
                     )}
 
 
-                    {/* Participants Section */}
                     <div className="card mt-4 mb-4">
                         <div className="card-body">
                             <h3 className="card-title">Uczestnicy ({developersList.length})</h3>
@@ -897,8 +855,7 @@ export const HomePage = () => {
                                             {dev.id === developer.id && " (Ty)"}
                                         </span>
 
-                                        {/* Warunkowe wyświetlanie głosu */}
-                                        {dev.vote !== null ? ( // Sprawdzamy, czy głos jest null
+                                        {dev.vote !== null ? (
                                             <span className="badge bg-primary rounded-pill">
                                                 {dev.vote}
                                             </span>
@@ -913,8 +870,7 @@ export const HomePage = () => {
                         </div>
                     </div>
 
-                    {/* Voting Section */}
-                    {!currentUserHasVoted && ( // Wyświetlaj pole do głosowania, jeśli użytkownik nie zagłosował
+                    {!currentUserHasVoted && (
                         <div className="card">
                             <div className="card-body">
                                 <Voting
@@ -926,7 +882,6 @@ export const HomePage = () => {
                         </div>
                     )}
 
-                    {/* Invite Link Section */}
                     {mode === 'on-table' && table?.id && (
                         <div className="mt-4 card">
                             <div className="card-body">
@@ -956,12 +911,11 @@ export const HomePage = () => {
                 </>
             )}
 
-            {/* Tryb tylko do odczytu (View Only) */}
             {isViewOnlyMode && (
                 <>
                     <Button
                         variant="secondary"
-                        onClick={handleBackToSessionList} // Przycisk powrotu do listy
+                        onClick={handleBackToSessionList}
                         className="mb-4"
                     >
                         Wróć do listy sesji
@@ -984,7 +938,6 @@ export const HomePage = () => {
                         </ListGroup>
                     )}
 
-                    {/* Przycisk Eksportuj w trybie view-only */}
                     {userStories.length > 0 && (
                         <div className="mt-4">
                             <Button

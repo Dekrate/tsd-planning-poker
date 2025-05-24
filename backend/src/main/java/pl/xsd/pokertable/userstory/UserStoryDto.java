@@ -12,12 +12,5 @@ public class UserStoryDto {
 	private String title;
 	private String description;
 	private Integer estimatedPoints;
-	// Do not include pokerTable to avoid lazy initialization issues
 
-	public UserStoryDto(UserStory userStory) {
-		this.id = userStory.getId();
-		this.title = userStory.getTitle();
-		this.description = userStory.getDescription();
-		this.estimatedPoints = userStory.getEstimatedPoints();
-	}
 }

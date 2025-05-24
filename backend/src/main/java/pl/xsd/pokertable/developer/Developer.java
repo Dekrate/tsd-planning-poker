@@ -41,20 +41,26 @@ public class Developer {
 	@ManyToOne
 	@JoinColumn(name = "poker_table_id")
 	@JsonIgnore
-	private PokerTable pokerTable; // Represents the CURRENT active table for the developer
+	private PokerTable pokerTable;
 
 	@Column
 	private Integer vote;
-
-	// NEW Many-to-Many relationship to track past tables participated in
 	@ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
 	@JoinTable(
-			name = "developer_past_tables", // Name of the join table
-			joinColumns = @JoinColumn(name = "developer_id"), // Column for Developer
-			inverseJoinColumns = @JoinColumn(name = "poker_table_id") // Column for PokerTable
+			name = "developer_past_tables",
+			joinColumns = @JoinColumn(name = "developer_id"),
+			inverseJoinColumns = @JoinColumn(name = "poker_table_id")
 	)
-	@JsonIgnore // We don't want this in JSON responses to avoid circular references
-	private Set<PokerTable> pastTables = new HashSet<>(); // Set of tables the developer has participated in
+	@JsonIgnore
+	private Set<PokerTable> pastTables = new HashSet<>();
+
+	public Developer(Long id, String name, String email, String password, PokerTable pokerTable) {
+		this.id = id;
+		this.name = name;
+		this.email = email;
+		this.password = password;
+		this.pokerTable = pokerTable;
+	}
 
 	public boolean hasVoted() {
 		return vote == null;
@@ -65,14 +71,10 @@ public class Developer {
 		this.email = email;
 		this.password = password;
 	}
-
-	// Helper method to add a table to past tables
 	public void addPastTable(PokerTable table) {
 		this.pastTables.add(table);
-		table.getPastParticipants().add(this); // Ensure bidirectional relationship is maintained
+		table.getPastParticipants().add(this);
 	}
-
-	// Helper method to remove a table from past tables
 	public void removePastTable(PokerTable table) {
 		this.pastTables.remove(table);
 		table.getPastParticipants().remove(this);

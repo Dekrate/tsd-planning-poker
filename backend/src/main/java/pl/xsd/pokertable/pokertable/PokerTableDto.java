@@ -14,8 +14,6 @@ public class PokerTableDto {
 	private String name;
 	private LocalDateTime createdAt;
 	private Boolean isClosed;
-
-	// Konstruktor do konwersji z encji PokerTable
 	public PokerTableDto(PokerTable pokerTable) {
 		this.id = pokerTable.getId();
 		this.name = pokerTable.getName();

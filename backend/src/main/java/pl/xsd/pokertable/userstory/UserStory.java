@@ -37,4 +37,8 @@ public class UserStory {
 		this.title = title;
 		this.description = description;
 	}
+
+	public UserStoryDto toDto() {
+		return new UserStoryDto(id, title, description, estimatedPoints);
+	}
 }

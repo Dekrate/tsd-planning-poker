@@ -40,10 +40,8 @@ public class PokerTable {
 	@OneToMany(mappedBy = "pokerTable", cascade = CascadeType.ALL, orphanRemoval = true)
 	@JsonIgnore
 	private Set<UserStory> userStories = new HashSet<>();
-
-	// NOWA RELACJA Many-to-Many do śledzenia przeszłych uczestników
 	@ManyToMany(mappedBy = "pastTables")
-	@JsonIgnore // Nie chcemy tego w odpowiedziach JSON
+	@JsonIgnore
 	private Set<Developer> pastParticipants = new HashSet<>();
 
 

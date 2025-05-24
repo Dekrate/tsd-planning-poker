@@ -1,12 +1,12 @@
 package pl.xsd.pokertable.userstory;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pl.xsd.pokertable.exception.NotFoundException;
 import pl.xsd.pokertable.pokertable.PokerTable;
 import pl.xsd.pokertable.pokertable.PokerTableRepository;
 
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class UserStoryService {
@@ -19,42 +19,43 @@ public class UserStoryService {
 		this.pokerTableRepository = pokerTableRepository;
 	}
 
-	public UserStoryDto createUserStory(Long pokerTableId, UserStory userStory) { // Zmieniono zwracany typ na UserStoryDto
+	@Transactional
+	public UserStory createUserStory(Long pokerTableId, UserStory userStory) {
 		PokerTable pokerTable = pokerTableRepository.findById(pokerTableId)
-				.orElseThrow(() -> new NotFoundException("Poker table not found with ID: " + pokerTableId));
+				.orElseThrow(() -> new NotFoundException("PokerTable with id " + pokerTableId + " not found"));
 		userStory.setPokerTable(pokerTable);
-		UserStory savedUserStory = userStoryRepository.save(userStory);
-		return new UserStoryDto(savedUserStory); // Konwersja na DTO
+
+		return userStoryRepository.save(userStory);
 	}
 
-	public UserStoryDto getUserStoryById(Long storyId) { // Zmieniono zwracany typ na UserStoryDto
-		UserStory userStory = userStoryRepository.findById(storyId)
-				.orElseThrow(() -> new NotFoundException("User story not found with ID: " + storyId));
-		return new UserStoryDto(userStory); // Konwersja na DTO
+	public UserStory getUserStoryById(Long storyId) {
+		return userStoryRepository.findById(storyId)
+				.orElseThrow(() -> new NotFoundException("UserStory with id " + storyId + " not found"));
 	}
 
-	public Set<UserStoryDto> getUserStoriesForTable(Long tableId) { // Zmieniono zwracany typ na Set<UserStoryDto>
-		return userStoryRepository.findByPokerTableId(tableId).stream()
-				.map(UserStoryDto::new) // Konwersja na DTO
-				.collect(Collectors.toSet());
+	public Set<UserStory> getUserStoriesForTable(Long pokerTableId) {
+		PokerTable pokerTable = pokerTableRepository.findById(pokerTableId)
+				.orElseThrow(() -> new NotFoundException("PokerTable with id " + pokerTableId + " not found"));
+		return userStoryRepository.findByPokerTable(pokerTable);
 	}
 
-	public UserStoryDto updateUserStory(Long storyId, UserStory updatedDetails) { // Zmieniono zwracany typ na UserStoryDto
-		UserStory userStory = userStoryRepository.findById(storyId)
-				.orElseThrow(() -> new NotFoundException("User story not found with ID: " + storyId));
+	@Transactional
+	public UserStory updateUserStory(Long storyId, UserStory userStory) {
+		UserStory existingStory = userStoryRepository.findById(storyId)
+				.orElseThrow(() -> new NotFoundException("UserStory with id " + storyId + " not found"));
 
-		userStory.setTitle(updatedDetails.getTitle());
-		userStory.setDescription(updatedDetails.getDescription());
-		userStory.setEstimatedPoints(updatedDetails.getEstimatedPoints());
+		existingStory.setTitle(userStory.getTitle());
+		existingStory.setDescription(userStory.getDescription());
+		existingStory.setEstimatedPoints(userStory.getEstimatedPoints());
 
-		UserStory savedUserStory = userStoryRepository.save(userStory);
-		return new UserStoryDto(savedUserStory); // Konwersja na DTO
+		return userStoryRepository.save(existingStory);
 	}
 
+	@Transactional
 	public void deleteUserStory(Long storyId) {
-		if (!userStoryRepository.existsById(storyId)) {
-			throw new NotFoundException("User story not found with ID: " + storyId);
-		}
-		userStoryRepository.deleteById(storyId);
+		UserStory story = userStoryRepository.findById(storyId)
+				.orElseThrow(() -> new NotFoundException("UserStory with id " + storyId + " not found"));
+
+		userStoryRepository.delete(story);
 	}
 }
