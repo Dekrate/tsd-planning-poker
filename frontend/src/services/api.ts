@@ -138,7 +138,7 @@ export const getAllActiveTables = async (): Promise<PokerTable[]> => {
     return response.data;
 };
 
-export const getMyClosedTables = async (developerId: number): Promise<PokerTable[]> => {
+export const getMyClosedTables = async (): Promise<PokerTable[]> => {
     const response = await authAxios.get(`/tables/my-closed`);
     return response.data;
 };

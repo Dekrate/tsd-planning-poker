@@ -19,7 +19,6 @@ import {
     registerDeveloper,
     loginDeveloper,
     logoutDeveloper,
-    hasDeveloperVoted,
     exportUserStoriesToCsv,
     getDeveloperById,
     getAllActiveTables,
@@ -170,7 +169,6 @@ export const HomePage = () => {
     const [authMode, setAuthMode] = useState<AuthMode>('login');
     const [error, setError] = useState<string | null>(null);
     const [authError, setAuthError] = useState<string | null>(null);
-    const [tableDetailsForJoin, setTableDetailsForJoin] = useState<any>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isUserStoryProcessing, setIsUserStoryProcessing] = useState(false);
 
@@ -362,7 +360,7 @@ export const HomePage = () => {
                 try {
                     const active: PokerTable[] = await getAllActiveTables();
                     setActiveTables(active);
-                    const closed: PokerTable[] = await getMyClosedTables(developer.id);
+                    const closed: PokerTable[] = await getMyClosedTables();
                     setClosedTables(closed);
 
                     const pendingJoinTableId = localStorage.getItem('pendingJoinTableId');
@@ -451,7 +449,7 @@ export const HomePage = () => {
             if (developer) {
                 const active = await getAllActiveTables();
                 setActiveTables(active);
-                const closed = await getMyClosedTables(developer.id);
+                const closed = await getMyClosedTables();
                 setClosedTables(closed);
             }
         } catch (err: any) {
@@ -675,10 +673,7 @@ export const HomePage = () => {
         <div className="container mt-5">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 {table && <h1 className="mb-0">Planning Poker: {table.name}</h1>}
-                {mode === 'joining-specific' && tableDetailsForJoin && <h1 className="mb-0">Dołącz do Planning Poker: {tableDetailsForJoin.name}</h1>}
-                {mode === 'initial' && <h1 className="mb-0">Planning Poker</h1>}
-                {mode === 'auth' && <h1 className="mb-0">Witaj w Planning Poker</h1>}
-                {mode === 'view-only' && table && <h1 className="mb-0">Historia sesji: {table.name}</h1>}
+                {mode === 'joining-specific' && <h1 className="mb-0">Dołącz do Planning Poker: {table?.name || 'sesji'}</h1>}
 
 
                 <div>
@@ -702,7 +697,7 @@ export const HomePage = () => {
                 </div>
             </div>
 
-            {error && mode !== 'loading' && mode !== 'error' && (
+            {error && (
                 <Alert variant="danger" className="mt-4">{error}</Alert>
             )}
 
@@ -776,9 +771,9 @@ export const HomePage = () => {
                 </>
             )}
 
-            {mode === 'joining-specific' && !developer && tableDetailsForJoin && (
+            {mode === 'joining-specific' && !developer && (
                 <Alert variant="info" className="mt-4">
-                    Aby dołączyć do sesji <strong>{tableDetailsForJoin.name}</strong>, musisz się zalogować lub zarejestrować.
+                    Aby dołączyć do sesji <strong>{table?.name || 'sesji'}</strong>, musisz się zalogować lub zarejestrować.
                 </Alert>
             )}
 
@@ -921,7 +916,7 @@ export const HomePage = () => {
                         Wróć do listy sesji
                     </Button>
 
-                    <h3 className="mb-3">Historyjki użytkownika dla sesji: {table?.name} ({userStories.length})</h3>
+                    <h3 className="mb-3">Historia sesji: {table?.name} ({userStories.length})</h3>
                     {userStories.length === 0 ? (
                         <p>Brak historyjek użytkownika dla tej sesji.</p>
                     ) : (
