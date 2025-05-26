@@ -29,7 +29,6 @@ public class SecurityConfiguration {
 
 	private final DeveloperRepository developerRepository;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-	// Usunięto: private final JwtRequestFilter jwtRequestFilter; // <-- USUŃ TĘ LINIĘ
 
 	public SecurityConfiguration(DeveloperRepository developerRepository,
 	                             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
@@ -66,7 +65,7 @@ public class SecurityConfiguration {
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration configuration = new CorsConfiguration();
-		configuration.setAllowedOrigins(List.of("http://localhost:5173", "https://dekrate.github.io/tsd-planning-poker/"));
+		configuration.setAllowedOrigins(List.of("http://localhost:5173", "https://dekrate.github.io/tsd-planning-poker/", "https://dekrate.github.io"));
 		configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(List.of("*"));
 		configuration.setAllowCredentials(true);
