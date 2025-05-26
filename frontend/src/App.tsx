@@ -3,7 +3,8 @@ import {HomePage} from './pages/HomePage';
 
 function App() {
     return (
-        <Router>
+        // Dodaj prop basename, który musi być taki sam jak 'base' w vite.config.ts
+        <Router basename="/tsd-planning-poker/">
             <Routes>
                 <Route path="/" element={<HomePage/>}/>
                 <Route path="/join-session" element={<HomePage/>}/>
