@@ -2,6 +2,7 @@ package pl.xsd.pokertable.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -24,13 +25,18 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfiguration {
+public class SecurityConfiguration { // Używam nazwy Twojej klasy
 
 	private final DeveloperRepository developerRepository;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-	public SecurityConfiguration(DeveloperRepository developerRepository, JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+	private final JwtRequestFilter jwtRequestFilter; // Dodano wstrzyknięcie JwtRequestFilter
+
+	public SecurityConfiguration(DeveloperRepository developerRepository,
+	                             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+	                             JwtRequestFilter jwtRequestFilter) { // Dodano JwtRequestFilter do konstruktora
 		this.developerRepository = developerRepository;
 		this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+		this.jwtRequestFilter = jwtRequestFilter; // Inicjalizacja JwtRequestFilter
 	}
 
 	@Bean
@@ -39,7 +45,7 @@ public class SecurityConfiguration {
 	}
 
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtRequestFilter jwtRequestFilter) throws Exception {
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception { // Usunięto JwtRequestFilter z parametrów metody
 		http
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -48,10 +54,11 @@ public class SecurityConfiguration {
 				)
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/developers/register", "/developers/login", "/error", "/developers/join").permitAll()
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // KLUCZOWA ZMIANA: Zezwól na wszystkie żądania OPTIONS
 						.anyRequest().authenticated()
 				)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+				.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class); // Użycie wstrzykniętego JwtRequestFilter
 
 		return http.build();
 	}
@@ -78,7 +85,6 @@ public class SecurityConfiguration {
 		return email -> developerRepository.findByEmail(email)
 				.map(developer -> User.withUsername(developer.getEmail())
 						.password(developer.getPassword())
-						.roles("DEVELOPER")
 						.build())
 				.orElseThrow(() -> new UsernameNotFoundException("Developer not found with email: " + email));
 	}
