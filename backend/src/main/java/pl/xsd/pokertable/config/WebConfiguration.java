@@ -10,6 +10,10 @@ public class WebConfiguration implements WebMvcConfigurer {
 
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
-		registry.addMapping("/**").allowedMethods("*").allowedOrigins("http://localhost:5173").allowCredentials(true);
+		registry.addMapping("/**")
+				.allowedMethods("*")
+				.allowedOrigins("http://localhost:5173",
+						"https://dekrate.github.io/tsd-planning-poker/")
+				.allowCredentials(true);
 	}
 }
