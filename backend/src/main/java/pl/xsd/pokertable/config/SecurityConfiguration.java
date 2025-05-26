@@ -25,18 +25,17 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfiguration { // Używam nazwy Twojej klasy
+public class SecurityConfiguration {
 
 	private final DeveloperRepository developerRepository;
 	private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-	private final JwtRequestFilter jwtRequestFilter; // Dodano wstrzyknięcie JwtRequestFilter
+	// Usunięto: private final JwtRequestFilter jwtRequestFilter; // <-- USUŃ TĘ LINIĘ
 
 	public SecurityConfiguration(DeveloperRepository developerRepository,
-	                             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
-	                             JwtRequestFilter jwtRequestFilter) { // Dodano JwtRequestFilter do konstruktora
+	                             JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+		// Usunięto: JwtRequestFilter z parametrów konstruktora
 		this.developerRepository = developerRepository;
 		this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
-		this.jwtRequestFilter = jwtRequestFilter; // Inicjalizacja JwtRequestFilter
 	}
 
 	@Bean
@@ -45,7 +44,8 @@ public class SecurityConfiguration { // Używam nazwy Twojej klasy
 	}
 
 	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception { // Usunięto JwtRequestFilter z parametrów metody
+	public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtRequestFilter jwtRequestFilter) throws Exception {
+		// Dodano: JwtRequestFilter jako parametr metody securityFilterChain
 		http
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -54,11 +54,11 @@ public class SecurityConfiguration { // Używam nazwy Twojej klasy
 				)
 				.authorizeHttpRequests(authorize -> authorize
 						.requestMatchers("/developers/register", "/developers/login", "/error", "/developers/join").permitAll()
-						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // KLUCZOWA ZMIANA: Zezwól na wszystkie żądania OPTIONS
+						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.anyRequest().authenticated()
 				)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class); // Użycie wstrzykniętego JwtRequestFilter
+				.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}
@@ -85,6 +85,7 @@ public class SecurityConfiguration { // Używam nazwy Twojej klasy
 		return email -> developerRepository.findByEmail(email)
 				.map(developer -> User.withUsername(developer.getEmail())
 						.password(developer.getPassword())
+						.roles("DEVELOPER")
 						.build())
 				.orElseThrow(() -> new UsernameNotFoundException("Developer not found with email: " + email));
 	}
