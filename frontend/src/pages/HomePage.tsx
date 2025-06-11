@@ -231,7 +231,7 @@ export const HomePage = () => {
                 setDeveloper(null);
                 setMode('auth');
                 setAuthMode('login');
-                setAuthError("Twoja sesja wygasła lub jest nieprawidłowa. Zaloguj się ponownie.");
+                setAuthError("Your session has expired or is invalid. Please log in again.");
             } finally {
                 setIsProcessing(false);
             }
@@ -257,7 +257,7 @@ export const HomePage = () => {
             navigate('/join-session', { replace: true });
             setMode('auth');
             setAuthMode('login');
-            setAuthError("Aby dołączyć do sesji, musisz się zalogować lub zarejestrować.");
+            setAuthError("You must log in or register to join the session.");
             localStorage.setItem('pendingJoinTableId', tableIdFromUrl);
         }
         else if (!tableIdFromUrl && developer && mode !== 'initial' && mode !== 'on-table' && mode !== 'view-only') {
@@ -385,7 +385,7 @@ export const HomePage = () => {
     const handleJoin = async (tableIdToJoin: number) => {
         if (!developer) {
             console.error("Developer not logged in. Cannot join table.");
-            setError("Musisz być zalogowany, aby dołączyć do sesji.");
+            setError("You must be logged in to join a session.");
             setMode('auth');
             setAuthMode('login');
             localStorage.setItem('pendingJoinTableId', tableIdToJoin.toString());
@@ -406,7 +406,7 @@ export const HomePage = () => {
                 navigate('/join-session', { replace: true });
                 setMode('auth');
                 setAuthMode('login');
-                setAuthError("Aby utworzyć i dołączyć do sesji, musisz być zalogowany.");
+                setAuthError("You must be logged in to create and join a session.");
             }
         } catch (err: any) {
             console.error("Error creating table:", err);
@@ -491,10 +491,10 @@ export const HomePage = () => {
             document.execCommand('copy');
             textArea.remove();
 
-            setCopiedMessage('Link skopiowany do schowka!');
+            setCopiedMessage('Link copied to clipboard!');
         } catch (err) {
             console.error("Failed to copy invite link:", err);
-            setCopiedMessage('Nie udało się skopiować linku.');
+            setCopiedMessage('Failed to copy link.');
         } finally {
             setIsCopying(false);
             setTimeout(() => {
@@ -586,10 +586,10 @@ export const HomePage = () => {
         try {
             await registerDeveloper(name, email, password);
             setAuthMode('login');
-            setAuthError("Rejestracja zakończona sukcesem! Zaloguj się.");
+            setAuthError("Registration successful! Please log in.");
         } catch (err: any) {
             console.error("Registration failed:", err);
-            setAuthError(err.response?.data?.message || err.message || 'Rejestracja nieudana.');
+            setAuthError(err.response?.data?.message || err.message || 'Registration failed.');
         } finally {
             setIsProcessing(false);
         }
@@ -602,10 +602,10 @@ export const HomePage = () => {
             const { developer: loggedInDeveloper } = await loginDeveloper(email, password);
             setDeveloper(loggedInDeveloper);
             setMode('initial');
-            setAuthError("Logowanie zakończone sukcesem!");
+            setAuthError("Login successful!");
         } catch (err: any) {
             console.error("Login failed:", err);
-            setAuthError(err.response?.data?.message || err.message || 'Logowanie nieudane.');
+            setAuthError(err.response?.data?.message || err.message || 'Login failed.');
         } finally {
             setIsProcessing(false);
         }
@@ -628,7 +628,7 @@ export const HomePage = () => {
             localStorage.removeItem('pendingJoinTableId');
         } catch (err: any) {
             console.error("Logout failed:", err);
-            setError(`Nie udało się wylogować: ${err.response?.data?.message || err.message || 'Nieznany błąd'}`);
+            setError(`Failed to log out: ${err.response?.data?.message || err.message || 'Unknown error'}`);
         } finally {
             setIsProcessing(false);
         }
@@ -643,7 +643,7 @@ export const HomePage = () => {
             fetchDevelopersList();
         } catch (err: any) {
             console.error("Error resetting all votes:", err);
-            setError(`Nie udało się zresetować głosów: ${err.response?.data?.message || err.message || 'Nieznany błąd'}`);
+            setError(`Failed to reset votes: ${err.response?.data?.message || err.message || 'Unknown error'}`);
         } finally {
             setIsProcessing(false);
         }
@@ -651,18 +651,18 @@ export const HomePage = () => {
 
 
     if (mode === 'loading') {
-        return <div className="container mt-5">Ładowanie sesji planowania...</div>;
+        return <div className="container mt-5">Loading planning session...</div>;
     }
 
     if (mode === 'error') {
         return <div className="container mt-5">
-            <Alert variant="danger">Błąd: {error || "Wystąpił nieoczekiwany błąd."}</Alert>
+            <Alert variant="danger">Error: {error || "An unexpected error occurred."}</Alert>
             {searchParams.get('tableId') && mode === 'error' && (
                 <Button variant="secondary" onClick={() => navigate('/')}>
-                    Wróć do strony głównej / Utwórz nową sesję
+                    Back to Home / Create New Session
                 </Button>
             )}
-            <Button variant="info" onClick={autoLogin} className="ms-2">Spróbuj ponownie automatycznego logowania</Button>
+            <Button variant="info" onClick={autoLogin} className="ms-2">Try automatic login again</Button>
         </div>;
     }
 
@@ -673,24 +673,24 @@ export const HomePage = () => {
         <div className="container mt-5">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 {table && <h1 className="mb-0">Planning Poker: {table.name}</h1>}
-                {mode === 'joining-specific' && <h1 className="mb-0">Dołącz do Planning Poker: {table?.name || 'sesji'}</h1>}
+                {mode === 'joining-specific' && <h1 className="mb-0">Join Planning Poker: {table?.name || 'session'}</h1>}
 
 
                 <div>
                     {developer ? (
                         <>
-                            <span className="me-2">Zalogowano jako: {developer.name}</span>
+                            <span className="me-2">Logged in as: {developer.name}</span>
                             <Button variant="outline-danger" size="sm" onClick={handleLogout} disabled={isProcessing}>
-                                Wyloguj
+                                Logout
                             </Button>
                         </>
                     ) : (
                         <>
                             <Button variant="outline-primary" size="sm" onClick={() => { setMode('auth'); setAuthMode('login'); setError(null); setAuthError(null); }} className="me-2">
-                                Zaloguj
+                                Login
                             </Button>
                             <Button variant="outline-success" size="sm" onClick={() => { setMode('auth'); setAuthMode('register'); setError(null); setAuthError(null); }}>
-                                Zarejestruj
+                                Register
                             </Button>
                         </>
                     )}
@@ -713,21 +713,21 @@ export const HomePage = () => {
 
             {mode === 'initial' && developer && (
                 <>
-                    <p>Witaj! Utwórz nową sesję planowania lub dołącz do niej za pomocą linku z zaproszeniem.</p>
+                    <p>Welcome! Create a new planning session or join one using an invitation link.</p>
                     <Button
                         variant="primary"
                         onClick={handleCreateTable}
                         className="mt-3"
                         disabled={isProcessing}
                     >
-                        {isProcessing ? 'Tworzenie...' : 'Utwórz nową sesję'}
+                        {isProcessing ? 'Creating...' : 'Create New Session'}
                     </Button>
 
-                    <h4 className="mt-5 mb-3">Dostępne aktywne sesje:</h4>
+                    <h4 className="mt-5 mb-3">Available Active Sessions:</h4>
                     {isProcessing ? (
-                        <p>Ładowanie sesji...</p>
+                        <p>Loading sessions...</p>
                     ) : activeTables.length === 0 ? (
-                        <p>Brak aktywnych sesji. Utwórz nową!</p>
+                        <p>No active sessions. Create a new one!</p>
                     ) : (
                         <ListGroup className="mt-3">
                             {activeTables.map(activeTable => (
@@ -739,18 +739,18 @@ export const HomePage = () => {
                                         onClick={() => handleJoin(activeTable.id)}
                                         disabled={isProcessing}
                                     >
-                                        Dołącz
+                                        Join
                                     </Button>
                                 </ListGroup.Item>
                             ))}
                         </ListGroup>
                     )}
 
-                    <h4 className="mt-5 mb-3">Twoje poprzednie sesje (tylko do odczytu):</h4>
+                    <h4 className="mt-5 mb-3">Your Past Sessions (Read-only):</h4>
                     {isProcessing ? (
-                        <p>Ładowanie poprzednich sesji...</p>
+                        <p>Loading past sessions...</p>
                     ) : closedTables.length === 0 ? (
-                        <p>Brak poprzednich sesji, w których brałeś udział.</p>
+                        <p>No past sessions you participated in.</p>
                     ) : (
                         <ListGroup className="mt-3">
                             {closedTables.map(closedTable => (
@@ -762,7 +762,7 @@ export const HomePage = () => {
                                         onClick={() => handleViewPastSession(closedTable.id)}
                                         disabled={isProcessing}
                                     >
-                                        Podgląd
+                                        View
                                     </Button>
                                 </ListGroup.Item>
                             ))}
@@ -773,7 +773,7 @@ export const HomePage = () => {
 
             {mode === 'joining-specific' && !developer && (
                 <Alert variant="info" className="mt-4">
-                    Aby dołączyć do sesji <strong>{table?.name || 'sesji'}</strong>, musisz się zalogować lub zarejestrować.
+                    To join the session <strong>{table?.name || 'session'}</strong>, you need to log in or register.
                 </Alert>
             )}
 
@@ -786,7 +786,7 @@ export const HomePage = () => {
                             onClick={handleBackToSessionList}
                             disabled={isProcessing}
                         >
-                            Wróć do listy sesji
+                            Back to Session List
                         </Button>
                         <Button
                             variant="danger"
@@ -794,7 +794,7 @@ export const HomePage = () => {
                             disabled={isProcessing}
                             className="ms-2"
                         >
-                            Zamknij sesję
+                            Close Session
                         </Button>
                         <Button
                             variant="warning"
@@ -802,7 +802,7 @@ export const HomePage = () => {
                             disabled={isProcessing}
                             className="ms-auto"
                         >
-                            Resetuj głosy dla wszystkich
+                            Reset All Votes
                         </Button>
                     </div>
 
@@ -830,7 +830,7 @@ export const HomePage = () => {
                                 onClick={handleExportStories}
                                 disabled={isUserStoryProcessing}
                             >
-                                Eksportuj historyjki do CSV (dla JIRA)
+                                Export Stories to CSV (for JIRA)
                             </Button>
                         </div>
                     )}
@@ -838,7 +838,7 @@ export const HomePage = () => {
 
                     <div className="card mt-4 mb-4">
                         <div className="card-body">
-                            <h3 className="card-title">Uczestnicy ({developersList.length})</h3>
+                            <h3 className="card-title">Participants ({developersList.length})</h3>
                             <ul className="list-group">
                                 {developersList.map(dev => (
                                     <li
@@ -847,7 +847,7 @@ export const HomePage = () => {
                                     >
                                         <span>
                                             {dev.name}
-                                            {dev.id === developer.id && " (Ty)"}
+                                            {dev.id === developer.id && " (You)"}
                                         </span>
 
                                         {dev.vote !== null ? (
@@ -856,7 +856,7 @@ export const HomePage = () => {
                                             </span>
                                         ) : (
                                             <span className="text-muted">
-                                                Brak głosu
+                                                No vote
                                             </span>
                                         )}
                                     </li>
@@ -880,8 +880,8 @@ export const HomePage = () => {
                     {mode === 'on-table' && table?.id && (
                         <div className="mt-4 card">
                             <div className="card-body">
-                                <h5 className="card-title">Zaproś członków zespołu</h5>
-                                <p>Udostępnij ten link:</p>
+                                <h5 className="card-title">Invite Team Members</h5>
+                                <p>Share this link:</p>
                                 <div className="d-flex align-items-center mb-2">
                                     <a href={`${window.location.origin}/join-session?tableId=${table.id}`} target="_blank" rel="noopener noreferrer" className="me-2 text-break">
                                         {`${window.location.origin}/join-session?tableId=${table.id}`}
@@ -892,11 +892,11 @@ export const HomePage = () => {
                                         disabled={isCopying}
                                         size="sm"
                                     >
-                                        {isCopying ? 'Kopiowanie...' : 'Kopiuj'}
+                                        {isCopying ? 'Copying...' : 'Copy'}
                                     </Button>
                                 </div>
                                 {copiedMessage && (
-                                    <p className={`mt-2 mb-0 text-${copiedMessage.includes('skopiowany') ? 'success' : 'danger'}`}>
+                                    <p className={`mt-2 mb-0 text-${copiedMessage.includes('copied') ? 'success' : 'danger'}`}>
                                         {copiedMessage}
                                     </p>
                                 )}
@@ -913,12 +913,12 @@ export const HomePage = () => {
                         onClick={handleBackToSessionList}
                         className="mb-4"
                     >
-                        Wróć do listy sesji
+                        Back to Session List
                     </Button>
 
-                    <h3 className="mb-3">Historia sesji: {table?.name} ({userStories.length})</h3>
+                    <h3 className="mb-3">Session History: {table?.name} ({userStories.length})</h3>
                     {userStories.length === 0 ? (
-                        <p>Brak historyjek użytkownika dla tej sesji.</p>
+                        <p>No user stories for this session.</p>
                     ) : (
                         <ListGroup className="mb-4">
                             {userStories.map(story => (
@@ -926,7 +926,7 @@ export const HomePage = () => {
                                     <h5>{story.title}</h5>
                                     {story.description && <p className="text-muted mb-1">{story.description}</p>}
                                     {story.estimatedPoints != null && (
-                                        <span className="badge bg-primary">Szacowane punkty: {story.estimatedPoints}</span>
+                                        <span className="badge bg-primary">Estimated points: {story.estimatedPoints}</span>
                                     )}
                                 </ListGroup.Item>
                             ))}
@@ -940,7 +940,7 @@ export const HomePage = () => {
                                 onClick={handleExportStories}
                                 disabled={isUserStoryProcessing}
                             >
-                                Eksportuj historyjki do CSV (dla JIRA)
+                                Export to CSV
                             </Button>
                         </div>
                     )}
@@ -949,3 +949,4 @@ export const HomePage = () => {
         </div>
     );
 };
+
